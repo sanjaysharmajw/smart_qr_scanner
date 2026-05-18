@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 import 'dart:ui' show ImageFilter;
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
@@ -453,21 +452,33 @@ class _LoadingScreen extends StatefulWidget {
 }
 
 class _LoadingScreenState extends State<_LoadingScreen>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
+    with TickerProviderStateMixin {
+  late AnimationController _pulseCtrl;
+  late AnimationController _scanCtrl;
+  late AnimationController _dotCtrl;
 
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(
+    _pulseCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1400),
+      duration: const Duration(milliseconds: 1600),
+    )..repeat(reverse: true);
+    _scanCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1800),
+    )..repeat(reverse: true);
+    _dotCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
     )..repeat();
   }
 
   @override
   void dispose() {
-    _ctrl.dispose();
+    _pulseCtrl.dispose();
+    _scanCtrl.dispose();
+    _dotCtrl.dispose();
     super.dispose();
   }
 
@@ -480,33 +491,85 @@ class _LoadingScreenState extends State<_LoadingScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Scan frame with sweep line + pulsing icon
             SizedBox(
-              width: 140,
-              height: 140,
-              child: AnimatedBuilder(
-                animation: _ctrl,
-                builder: (_, __) => CustomPaint(
-                  painter: _LoadingFramePainter(
-                      accent: accent, progress: _ctrl.value),
-                ),
+              width: 220,
+              height: 220,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  AnimatedBuilder(
+                    animation: Listenable.merge([_pulseCtrl, _scanCtrl]),
+                    builder: (_, __) => CustomPaint(
+                      size: const Size(220, 220),
+                      painter: _LoadingFramePainter(
+                        accent: accent,
+                        pulse: _pulseCtrl.value,
+                        scanProgress: CurvedAnimation(
+                          parent: _scanCtrl,
+                          curve: Curves.easeInOut,
+                        ).value,
+                      ),
+                    ),
+                  ),
+                  // Pulsing QR icon in center
+                  AnimatedBuilder(
+                    animation: _pulseCtrl,
+                    builder: (_, child) => Opacity(
+                      opacity: 0.25 + _pulseCtrl.value * 0.5,
+                      child: child,
+                    ),
+                    child: Icon(Icons.qr_code_2_rounded, color: accent, size: 80),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 28),
-            SizedBox(
-              width: 24,
-              height: 24,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(accent),
+            const SizedBox(height: 36),
+            // "PREPARING SCANNER" label
+            Text(
+              'PREPARING SCANNER',
+              style: TextStyle(
+                color: accent,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 3.5,
               ),
             ),
             const SizedBox(height: 16),
+            // Animated 3-dot indicator
+            AnimatedBuilder(
+              animation: _dotCtrl,
+              builder: (_, __) {
+                final active = (_dotCtrl.value * 3).floor();
+                return Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: List.generate(3, (i) {
+                    final lit = i == active;
+                    return AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      margin: const EdgeInsets.symmetric(horizontal: 4),
+                      width: lit ? 8 : 5,
+                      height: lit ? 8 : 5,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: lit ? accent : accent.withAlpha(50),
+                        boxShadow: lit
+                            ? [BoxShadow(color: accent.withAlpha(120), blurRadius: 8)]
+                            : [],
+                      ),
+                    );
+                  }),
+                );
+              },
+            ),
+            const SizedBox(height: 14),
             Text(
               'Starting camera…',
               style: TextStyle(
-                color: Colors.white.withAlpha(200),
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
+                color: Colors.white.withAlpha(80),
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+                letterSpacing: 0.3,
               ),
             ),
           ],
@@ -518,43 +581,81 @@ class _LoadingScreenState extends State<_LoadingScreen>
 
 class _LoadingFramePainter extends CustomPainter {
   final Color accent;
-  final double progress;
-  const _LoadingFramePainter({required this.accent, required this.progress});
+  final double pulse;
+  final double scanProgress;
+
+  const _LoadingFramePainter({
+    required this.accent,
+    required this.pulse,
+    required this.scanProgress,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
-    final rect = Rect.fromLTWH(12, 12, size.width - 24, size.height - 24);
-    const r = 14.0;
-    const len = 26.0;
+    final rect = Rect.fromLTWH(16, 16, size.width - 32, size.height - 32);
+    const r = 20.0;
+    const len = 36.0;
     const sw = 3.0;
 
-    final alpha = (math.sin(progress * math.pi) * 180 + 75).round();
-    final paint = Paint()
-      ..color = accent.withAlpha(alpha)
+    // Corner bracket path helper
+    Path cornerPath(double x, double y, double sx, double sy) => Path()
+      ..moveTo(x + (r + len) * sx, y)
+      ..lineTo(x + r * sx, y)
+      ..arcToPoint(Offset(x, y + r * sy),
+          radius: const Radius.circular(r), clockwise: sx != sy)
+      ..lineTo(x, y + (r + len) * sy);
+
+    final corners = [
+      cornerPath(rect.left, rect.top, 1, 1),
+      cornerPath(rect.right, rect.top, -1, 1),
+      cornerPath(rect.left, rect.bottom, 1, -1),
+      cornerPath(rect.right, rect.bottom, -1, -1),
+    ];
+
+    // Glow layer
+    final glowPaint = Paint()
+      ..color = accent.withAlpha((pulse * 70).round())
+      ..strokeWidth = sw + 5
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
+    for (final p in corners) { canvas.drawPath(p, glowPaint); }
+
+    // Sharp bracket layer
+    final bracketPaint = Paint()
+      ..color = accent.withAlpha((140 + (pulse * 115).round()))
       ..strokeWidth = sw
       ..strokeCap = StrokeCap.round
       ..style = PaintingStyle.stroke;
+    for (final p in corners) { canvas.drawPath(p, bracketPaint); }
 
-    void corner(double x, double y, double sx, double sy) {
-      final path = Path()
-        ..moveTo(x + r * sx, y)
-        ..arcToPoint(Offset(x, y + r * sy),
-            radius: const Radius.circular(r), clockwise: sx != sy)
-        ..moveTo(x + r * sx, y)
-        ..lineTo(x + (r + len) * sx, y)
-        ..moveTo(x, y + r * sy)
-        ..lineTo(x, y + (r + len) * sy);
-      canvas.drawPath(path, paint);
-    }
+    // Scan line sweep
+    final scanY = rect.top + scanProgress * rect.height;
 
-    corner(rect.left, rect.top, 1, 1);
-    corner(rect.right, rect.top, -1, 1);
-    corner(rect.left, rect.bottom, 1, -1);
-    corner(rect.right, rect.bottom, -1, -1);
+    // Scan line glow
+    final glowLinePaint = Paint()
+      ..color = accent.withAlpha(35)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+    canvas.drawRect(
+      Rect.fromLTWH(rect.left, scanY - 5, rect.width, 10),
+      glowLinePaint,
+    );
+
+    // Scan line gradient
+    final linePaint = Paint()
+      ..shader = LinearGradient(
+        colors: [Colors.transparent, accent.withAlpha(220), Colors.transparent],
+        stops: const [0.0, 0.5, 1.0],
+      ).createShader(Rect.fromLTWH(rect.left, scanY - 1, rect.width, 2));
+    canvas.drawRect(
+      Rect.fromLTWH(rect.left, scanY - 1, rect.width, 2),
+      linePaint,
+    );
   }
 
   @override
-  bool shouldRepaint(_LoadingFramePainter old) => old.progress != progress;
+  bool shouldRepaint(_LoadingFramePainter old) =>
+      old.pulse != pulse || old.scanProgress != scanProgress;
 }
 
 // ── Full-screen state (error / permission) ────────────────────────────────────
@@ -823,7 +924,6 @@ class _ThemeOption extends StatelessWidget {
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
                   color: color.withAlpha(selected ? 120 : 40),
-                  width: 1,
                 ),
                 boxShadow: selected
                     ? [BoxShadow(color: color.withAlpha(60), blurRadius: 12)]

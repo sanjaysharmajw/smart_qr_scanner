@@ -202,21 +202,37 @@ class HomeScreen extends StatelessWidget {
 
   void _open(BuildContext context, ScannerConfig config) => Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => ScannerScreen(config: config)),
+        _scannerRoute(ScannerScreen(config: config)),
       );
 
   void _openWithTheme(BuildContext context, ScannerTheme theme) =>
       Navigator.push(
         context,
-        MaterialPageRoute(
-          builder: (_) => ScannerScreen(
-            config: const ScannerConfig(
-                scanMode: ScanMode.single,
-                enableVibration: true,
-                enableSound: true),
-            theme: theme,
-          ),
-        ),
+        _scannerRoute(ScannerScreen(
+          config: const ScannerConfig(
+              scanMode: ScanMode.single,
+              enableVibration: true,
+              enableSound: true),
+          theme: theme,
+        )),
+      );
+
+  PageRouteBuilder<void> _scannerRoute(Widget page) => PageRouteBuilder(
+        pageBuilder: (_, __, ___) => page,
+        transitionDuration: const Duration(milliseconds: 420),
+        reverseTransitionDuration: const Duration(milliseconds: 320),
+        transitionsBuilder: (_, animation, __, child) {
+          final slide = Tween(
+            begin: const Offset(0, 1),
+            end: Offset.zero,
+          ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic));
+          final fade = Tween(begin: 0.0, end: 1.0)
+              .animate(CurvedAnimation(parent: animation, curve: const Interval(0, 0.4)));
+          return SlideTransition(
+            position: slide,
+            child: FadeTransition(opacity: fade, child: child),
+          );
+        },
       );
 }
 
