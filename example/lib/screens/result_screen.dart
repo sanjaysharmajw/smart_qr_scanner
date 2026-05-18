@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:smart_qr_scanner/smart_qr_scanner.dart';
 import 'scanner_screen.dart';
-import 'package:share_plus/share_plus.dart';
 
 // ── Design tokens (mirror home_screen) ───────────────────────────────────────
 abstract final class _C {
@@ -383,32 +382,18 @@ class _ResultScreenState extends State<ResultScreen>
           ),
         ],
         const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: _SecondaryBtn(
-                icon: Icons.share_rounded,
-                label: 'Share',
-                onTap: () => Share.share(widget.result.rawValue),
-              ),
+        _SecondaryBtn(
+          icon: Icons.qr_code_scanner_rounded,
+          label: 'Scan Again',
+          onTap: () => Navigator.pushReplacement(
+            context,
+            PageRouteBuilder(
+              pageBuilder: (_, anim, __) => const ScannerScreen(),
+              transitionsBuilder: (_, anim, __, child) =>
+                  FadeTransition(opacity: anim, child: child),
+              transitionDuration: const Duration(milliseconds: 350),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _SecondaryBtn(
-                icon: Icons.qr_code_scanner_rounded,
-                label: 'Scan Again',
-                onTap: () => Navigator.pushReplacement(
-                  context,
-                  PageRouteBuilder(
-                    pageBuilder: (_, anim, __) => const ScannerScreen(),
-                    transitionsBuilder: (_, anim, __, child) =>
-                        FadeTransition(opacity: anim, child: child),
-                    transitionDuration: const Duration(milliseconds: 350),
-                  ),
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
       ],
     );

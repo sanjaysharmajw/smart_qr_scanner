@@ -1,13 +1,10 @@
-import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:gal/gal.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:qr/qr.dart';
-import 'package:share_plus/share_plus.dart';
+import 'package:pretty_qr_code/pretty_qr_code.dart';
 
 /// Barcode type for QR generation.
 enum QrInputType { text, url, wifi, email, phone, contact }
@@ -155,84 +152,7 @@ class _QrGeneratorWidgetState extends State<QrGeneratorWidget>
   }
 }
 
-// ── Custom QR painter (no qr_flutter) ────────────────────────────────────────
-
-/// Builds a [QrImage] from [data] using auto version selection.
-/// Returns null if the data cannot be encoded.
-QrImage? buildQrImage(String data) {
-  try {
-    final qrCode = QrCode.fromData(
-      data: data,
-      errorCorrectLevel: QrErrorCorrectLevel.M,
-    );
-
-    return QrImage(qrCode);
-  } catch (e) {
-    return null;
-  }
-}
-
-/// Renders a [QrImage] matrix onto a [Canvas].
-///
-/// - [eyeColor] colors the three finder-pattern squares (top-left, top-right,
-///   bottom-left) — gives the "eye" accent effect.
-/// - [dataColor] colors every other dark module.
-class QrPainter extends CustomPainter {
-  final QrImage qrImage;
-  final Color eyeColor;
-  final Color dataColor;
-  final Color background;
-
-  const QrPainter({
-    required this.qrImage,
-    this.eyeColor   = Colors.black,
-    this.dataColor  = Colors.black,
-    this.background = Colors.white,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final n = qrImage.moduleCount;
-    // QR spec requires a 4-module quiet zone on every side.
-    const quietZone = 4;
-    final total = n + 2 * quietZone;
-    final m = size.width / total; // pixel size per module
-    final offset = quietZone * m; // quiet-zone offset in pixels
-
-    canvas.drawRect(Offset.zero & size, Paint()..color = background);
-
-    final eyePaint  = Paint()..color = eyeColor;
-    final dataPaint = Paint()..color = dataColor;
-
-    for (var r = 0; r < n; r++) {
-      for (var c = 0; c < n; c++) {
-        if (!qrImage.isDark(r, c)) continue;
-        canvas.drawRect(
-          Rect.fromLTWH(offset + c * m, offset + r * m, m, m),
-          _isFinderRegion(r, c, n) ? eyePaint : dataPaint,
-        );
-      }
-    }
-  }
-
-  /// The three 7×7 finder patterns sit at the three corners.
-  /// Their quiet zones (row/col 7) are already light modules,
-  /// so colouring rows/cols 0-6 is sufficient.
-  bool _isFinderRegion(int r, int c, int n) {
-    if (r <= 6 && c <= 6)     return true; // top-left
-    if (r <= 6 && c >= n - 7) return true; // top-right
-    if (r >= n - 7 && c <= 6) return true; // bottom-left
-    return false;
-  }
-
-  @override
-  bool shouldRepaint(QrPainter old) =>
-      old.qrImage   != qrImage   ||
-      old.eyeColor  != eyeColor  ||
-      old.dataColor != dataColor;
-}
-
-/// A widget that renders a QR code for [data] using [QrPainter].
+/// A widget that renders a QR code for [data] using [PrettyQrView].
 /// Shows an error placeholder if the data cannot be encoded.
 class QrView extends StatelessWidget {
   final String data;
@@ -252,27 +172,23 @@ class QrView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final qrImage = buildQrImage(data);
-    if (qrImage == null) {
-      return SizedBox(
-        width: size,
-        height: size,
-        child: const Center(
+    return SizedBox(
+      width: size,
+      height: size,
+      child: PrettyQrView.data(
+        data: data,
+        decoration: PrettyQrDecoration(
+          shape: PrettyQrSquaresSymbol(color: dataColor),
+          background: background,
+          quietZone: PrettyQrQuietZone.standard,
+        ),
+        errorBuilder: (_, __, ___) => Center(
           child: Text(
             'Data too large\nfor a QR code',
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.red, fontSize: 13),
+            style: const TextStyle(color: Colors.red, fontSize: 13),
           ),
         ),
-      );
-    }
-    return CustomPaint(
-      size: Size(size, size),
-      painter: QrPainter(
-        qrImage:    qrImage,
-        eyeColor:   eyeColor,
-        dataColor:  dataColor,
-        background: background,
       ),
     );
   }
@@ -487,35 +403,6 @@ class _QrDisplayState extends State<_QrDisplay> {
     }
   }
 
-  /// Writes [bytes] to a temp file and returns the [File].
-  Future<File> _writeTempFile(Uint8List bytes) async {
-    final dir = await getTemporaryDirectory();
-    final file = File(
-        '${dir.path}/qr_${DateTime.now().millisecondsSinceEpoch}.png');
-    await file.writeAsBytes(bytes);
-    return file;
-  }
-
-  String _formatDateTime(DateTime dt) {
-    final d  = dt.day.toString().padLeft(2, '0');
-    final mo = dt.month.toString().padLeft(2, '0');
-    final h  = dt.hour.toString().padLeft(2, '0');
-    final mi = dt.minute.toString().padLeft(2, '0');
-    return '$d/$mo/${dt.year}  $h:$mi';
-  }
-
-  Future<void> _share() async {
-    final bytes = await _captureQr();
-    if (bytes == null) return;
-    final file = await _writeTempFile(bytes);
-    final dateStr = _formatDateTime(DateTime.now());
-    await Share.shareXFiles(
-      [XFile(file.path, mimeType: 'image/png', name: 'qr_code.png')],
-      subject: 'QR Code — $dateStr',
-      text: 'Generated on $dateStr\n${widget.data}',
-    );
-  }
-
   Future<void> _download() async {
     if (_saving) return;
     setState(() => _saving = true);
@@ -644,15 +531,6 @@ class _QrDisplayState extends State<_QrDisplay> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          // Full-width Share as image button
-          _ActionBtn(
-            icon: Icons.share_rounded,
-            label: 'Share QR Image',
-            accent: widget.accent,
-            onTap: _share,
-            fullWidth: true,
-          ),
         ],
       ),
     );
@@ -663,36 +541,29 @@ class _ActionBtn extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
-  final Color? accent;
-  final bool fullWidth;
   const _ActionBtn({
     required this.icon,
     required this.label,
     required this.onTap,
-    this.accent,
-    this.fullWidth = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final filled = accent != null;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         height: 46,
-        width: fullWidth ? double.infinity : null,
         decoration: BoxDecoration(
-          color: filled ? accent : Colors.white,
+          color: Colors.white,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: filled ? accent! : const Color(0xFFE0E0E0)),
-          boxShadow: filled ? [BoxShadow(color: accent!.withAlpha(50), blurRadius: 8)] : [],
+          border: Border.all(color: const Color(0xFFE0E0E0)),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 16, color: filled ? Colors.white : Colors.black87),
+            Icon(icon, size: 16, color: Colors.black87),
             const SizedBox(width: 6),
-            Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: filled ? Colors.white : Colors.black87)),
+            Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.black87)),
           ],
         ),
       ),

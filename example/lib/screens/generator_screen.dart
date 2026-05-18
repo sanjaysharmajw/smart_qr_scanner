@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:smart_qr_scanner/smart_qr_scanner.dart';
 
 class GeneratorScreen extends StatefulWidget {
@@ -10,7 +9,6 @@ class GeneratorScreen extends StatefulWidget {
 }
 
 class _GeneratorScreenState extends State<GeneratorScreen> {
-  String _lastGenerated = '';
   static const _accent = Color(0xFF7C4DFF);
 
   @override
@@ -34,15 +32,10 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
                         borderRadius: BorderRadius.circular(24),
                         boxShadow: [BoxShadow(color: Colors.black.withAlpha(12), blurRadius: 20, offset: const Offset(0, 4))],
                       ),
-                      child: QrGeneratorWidget(
+                      child: const QrGeneratorWidget(
                         accentColor: _accent,
-                        onGenerated: (data) => setState(() => _lastGenerated = data),
                       ),
                     ),
-                    if (_lastGenerated.isNotEmpty) ...[
-                      const SizedBox(height: 16),
-                      _ShareBtn(data: _lastGenerated),
-                    ],
                   ],
                 ),
               ),
@@ -95,32 +88,3 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
   }
 }
 
-class _ShareBtn extends StatelessWidget {
-  final String data;
-  const _ShareBtn({required this.data});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => Share.share(data, subject: 'QR Code Data'),
-      child: Container(
-        width: double.infinity,
-        height: 50,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.black.withAlpha(12)),
-          boxShadow: [BoxShadow(color: Colors.black.withAlpha(8), blurRadius: 12)],
-        ),
-        child: const Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.share_rounded, size: 18, color: Colors.black54),
-            SizedBox(width: 8),
-            Text('Share QR Data', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black87)),
-          ],
-        ),
-      ),
-    );
-  }
-}
