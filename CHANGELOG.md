@@ -1,6 +1,29 @@
+## 1.5.0
+
+### Bug Fixes
+
+- **QR codes not scannable** — `QrView` was using `PrettyQrSmoothSymbol` which renders smooth/curved connections between modules that confuse QR readers. Switched to `PrettyQrSquaresSymbol` (standard sharp square modules) and added `PrettyQrQuietZone.standard` (mandatory 4-module quiet zone); generated codes are now reliably scanned by all standard QR readers.
+
+### Removals
+
+- **`share_plus` removed** — all sharing UI and logic removed from the main package and example app. `HistoryExporter.exportCsv()` now writes the CSV to the temporary directory and returns `true`/`false`; it no longer opens the system share sheet. Share buttons removed from the result screen and generator screen in the example app.
+- **`QrPainter` / `buildQrImage()` removed** — custom painter replaced by `PrettyQrView` from `pretty_qr_code: ^3.6.0`. `QrView` now delegates to `PrettyQrView.data()` with `PrettyQrSquaresSymbol` for scannable output.
+
+### Dependencies
+
+| Change | Package | Details |
+|--------|---------|---------|
+| Added | `pretty_qr_code` | `^3.6.0` — replaces custom `QrPainter`; provides `PrettyQrView` for QR rendering |
+| Removed | `qr` | Replaced by `pretty_qr_code` |
+| Removed | `share_plus` | Sharing functionality removed from package |
+
+---
+
 ## 1.4.0
 
-- ReadMe File Update
+### Improvements
+
+- README updated with full feature documentation, platform setup guide, API reference, themes, troubleshooting, and performance tips
 
 
 

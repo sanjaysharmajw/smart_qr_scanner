@@ -21,10 +21,9 @@ A **production-ready** Flutter package for real-time QR code and barcode scannin
 **QR Code Generator**
 - **Built-in QR generator** — `QrGeneratorWidget` with no external rendering dependency
 - **6 input types** — URL, plain text, WiFi credentials, email, phone number, vCard contact
-- **Custom `QrPainter`** — renders the full QR matrix with correct 4-module quiet zone
+- **`pretty_qr_code` rendering** — `PrettyQrSquaresSymbol` with standard 4-module quiet zone ensures generated codes are reliably scannable by all QR readers
 - **Accent-coloured finder patterns** — eye regions use your accent color; data modules stay black
 - **Save to gallery** — captures QR at 3× pixel ratio and saves via the `gal` package
-- **Share QR image** — share as PNG with date/time subject line via `share_plus`
 - **Copy data** — one-tap clipboard copy of the encoded string
 
 **UI & Animations**
@@ -83,7 +82,7 @@ A **production-ready** Flutter package for real-time QR code and barcode scannin
 
 ```yaml
 dependencies:
-  smart_qr_scanner: ^1.4.0
+  smart_qr_scanner: ^1.5.0
 ```
 
 ```bash
@@ -271,7 +270,7 @@ Supported input types (selectable via chips inside the widget):
 | Phone   | `tel:number`                       |
 | Contact | vCard 3.0 (`BEGIN:VCARD…END:VCARD`)|
 
-The rendered QR code includes the mandatory 4-module quiet zone on all sides and passes standard scanner validation. Users can copy the data, save the QR image to the gallery, or share it as a PNG.
+The rendered QR code uses `PrettyQrSquaresSymbol` with `PrettyQrQuietZone.standard` — standard sharp square modules with the required 4-module quiet zone — ensuring reliable scanning by all standard QR readers. Users can copy the data or save the QR image to the gallery.
 
 ### Use `QrView` standalone
 
@@ -283,22 +282,6 @@ QrView(
   eyeColor: Colors.teal,   // finder pattern accent
   dataColor: Colors.black, // data module color
   background: Colors.white,
-)
-```
-
-### Use `QrPainter` in a CustomPaint
-
-```dart
-final qrImage = buildQrImage('https://flutter.dev');
-
-CustomPaint(
-  size: const Size(250, 250),
-  painter: QrPainter(
-    qrImage: qrImage!,
-    eyeColor: Colors.teal,
-    dataColor: Colors.black,
-    background: Colors.white,
-  ),
 )
 ```
 
@@ -375,7 +358,7 @@ controller.clearHistory();
 
 ```dart
 await HistoryExporter.exportCsv(controller.history);
-// Generates a .csv file and opens the system share sheet
+// Generates a .csv file saved to the temporary directory; returns true on success
 ```
 
 CSV columns: `Timestamp`, `Format`, `Type`, `Raw Value`, `Display Value`, `Confidence`
@@ -672,7 +655,7 @@ Add `xmlns:tools` to the root `<manifest>` tag and `tools:replace="android:maxSd
 Pre-warm the controller before `Navigator.push` (see _Instant camera open_ above). Always call `controller.dispose()` inside your widget's `dispose()`.
 
 **Generated QR code not scannable**  
-The QR code rendered by `QrPainter` includes the required 4-module quiet zone. Ensure the widget has a white background behind it and the `ClipRRect` (if any) does not clip the quiet zone or finder patterns.
+`QrView` uses `PrettyQrSquaresSymbol` with `PrettyQrQuietZone.standard` — standard square modules and a 4-module quiet zone — which is reliably read by all QR apps. Ensure the widget is rendered against a white background so the quiet zone has sufficient contrast.
 
 **`buildPreview() on disposed CameraController` crash**  
 Handled automatically via the `isSwitching` flag — the widget renders a black placeholder while the old controller is disposed.
