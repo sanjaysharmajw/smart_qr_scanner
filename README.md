@@ -1,5 +1,7 @@
 # smart_qr_scanner
 
+![Banner](assets/image/banner.png)
+
 [![pub version](https://img.shields.io/pub/v/smart_qr_scanner.svg)](https://pub.dev/packages/smart_qr_scanner) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE) [![Platform](https://img.shields.io/badge/platform-android%20%7C%20ios-green.svg)]()
 
 A **production-ready** Flutter package for real-time QR code and barcode scanning powered by **Google ML Kit**. Drop in one widget, get a full-featured scanner with a modern animated UI, built-in QR generator, gallery scan, persistent history, favorites, CSV export, URL handling, haptic feedback, and a clean developer API.
@@ -81,7 +83,7 @@ A **production-ready** Flutter package for real-time QR code and barcode scannin
 
 ```yaml
 dependencies:
-  smart_qr_scanner: ^1.1.0
+  smart_qr_scanner: ^1.2.0
 ```
 
 ```bash
