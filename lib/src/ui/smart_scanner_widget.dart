@@ -765,24 +765,24 @@ class _ThemeSheet extends StatelessWidget {
   static const _options = [
     (
       theme: ScannerTheme.neon,
-      label: 'Neon',
-      desc: 'Cyan glow with dark overlay',
-      color: Color(0xFF00E5FF),
+      label: 'Cyber',
+      desc: 'Violet brackets · Electric cyan line',
+      color: Color(0xFF7C4DFF),
       icon: Icons.electric_bolt_rounded,
     ),
     (
       theme: ScannerTheme.light,
-      label: 'Light',
-      desc: 'Warm amber, clean & subtle',
-      color: Color(0xFFFFB703),
+      label: 'Aurora',
+      desc: 'Gold brackets · Warm amber sweep',
+      color: Color(0xFFFFD740),
       icon: Icons.wb_sunny_rounded,
     ),
     (
       theme: ScannerTheme.minimal,
-      label: 'Minimal',
-      desc: 'Pure white, distraction-free',
-      color: Color(0xFF607D8B),
-      icon: Icons.layers_rounded,
+      label: 'Ghost',
+      desc: 'Ultra-thin white · Stealth look',
+      color: Color(0xFF90A4AE),
+      icon: Icons.blur_on_rounded,
     ),
   ];
 

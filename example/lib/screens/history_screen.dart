@@ -3,19 +3,19 @@ import 'package:flutter/services.dart';
 import 'package:smart_qr_scanner/smart_qr_scanner.dart';
 
 class HistoryScreen extends StatefulWidget {
-  const HistoryScreen({super.key});
+  final List<SmartScanResult> items;
+  const HistoryScreen({super.key, required this.items});
 
   @override
   State<HistoryScreen> createState() => _HistoryScreenState();
 }
 
 class _HistoryScreenState extends State<HistoryScreen> {
-  final HistoryService _history = HistoryService(maxItems: 50);
   String _query = '';
 
   @override
   Widget build(BuildContext context) {
-    final all = _history.items;
+    final all = widget.items;
     final items = _query.isEmpty
         ? all
         : all
@@ -190,7 +190,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
           padding: const EdgeInsets.only(bottom: 10),
           child: _HistoryTile(
             result: items[i],
-            onDelete: () => setState(() => _history.remove(items[i])),
+            onDelete: () => setState(() => widget.items.remove(items[i])),
           ),
         ),
       );
@@ -260,7 +260,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 Expanded(
                   child: GestureDetector(
                     onTap: () {
-                      setState(() => _history.clear());
+                      setState(() => widget.items.clear());
                       Navigator.pop(context);
                     },
                     child: Container(

@@ -5,6 +5,7 @@ import 'result_screen.dart';
 class ScannerScreen extends StatefulWidget {
   final ScannerConfig config;
   final ScannerTheme theme;
+  final void Function(SmartScanResult)? onResult;
 
   const ScannerScreen({
     super.key,
@@ -14,6 +15,7 @@ class ScannerScreen extends StatefulWidget {
       enableSound: true,
     ),
     this.theme = ScannerTheme.light,
+    this.onResult,
   });
 
   @override
@@ -44,6 +46,7 @@ class _ScannerScreenState extends State<ScannerScreen> with SingleTickerProvider
   }
 
   void _onScan(SmartScanResult result) {
+    widget.onResult?.call(result);
     Navigator.pushReplacement(
       context,
       PageRouteBuilder(

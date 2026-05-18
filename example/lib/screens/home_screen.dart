@@ -3,10 +3,19 @@ import 'package:smart_qr_scanner/smart_qr_scanner.dart';
 import 'scanner_screen.dart';
 import 'history_screen.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
   static const _accent = Color(0xFF0066FF);
+  final _history = <SmartScanResult>[];
+
+  void _addResult(SmartScanResult result) =>
+      setState(() => _history.insert(0, result));
 
   @override
   Widget build(BuildContext context) {
@@ -149,7 +158,7 @@ class HomeScreen extends StatelessWidget {
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(
-                          builder: (_) => const HistoryScreen()),
+                          builder: (_) => HistoryScreen(items: _history)),
                     ),
                   ),
                 ],
@@ -202,7 +211,7 @@ class HomeScreen extends StatelessWidget {
 
   void _open(BuildContext context, ScannerConfig config) => Navigator.push(
         context,
-        _scannerRoute(ScannerScreen(config: config)),
+        _scannerRoute(ScannerScreen(config: config, onResult: _addResult)),
       );
 
   void _openWithTheme(BuildContext context, ScannerTheme theme) =>
@@ -214,6 +223,7 @@ class HomeScreen extends StatelessWidget {
               enableVibration: true,
               enableSound: true),
           theme: theme,
+          onResult: _addResult,
         )),
       );
 

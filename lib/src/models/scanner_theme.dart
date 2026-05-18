@@ -46,43 +46,42 @@ class ScannerTheme {
   final Color successColor;
 
   const ScannerTheme({
-    this.overlayColor = const Color(0xAA000000),
-    this.borderColor = const Color(0xFF00E5FF),
-    this.borderRadius = 16.0,
-    this.borderStrokeWidth = 3.5,
-    this.cornerLength = 28.0,
-    this.scanLineColor = const Color(0xFF00E5FF),
-    this.scanLineHeight = 2.5,
-    this.scanLineAnimationDuration = const Duration(milliseconds: 1800),
-    this.glassTintColor = const Color(0x22FFFFFF),
-    this.glassBlurSigma = 12.0,
+    this.overlayColor = const Color(0xBB000000),
+    this.borderColor = const Color(0xFF7C4DFF),
+    this.borderRadius = 18.0,
+    this.borderStrokeWidth = 4.0,
+    this.cornerLength = 30.0,
+    this.scanLineColor = const Color(0xFF18FFFF),
+    this.scanLineHeight = 3.0,
+    this.scanLineAnimationDuration = const Duration(milliseconds: 1500),
+    this.glassTintColor = const Color(0x127C4DFF),
+    this.glassBlurSigma = 18.0,
     this.hintTextStyle = const TextStyle(
       color: Colors.white,
       fontSize: 14,
       fontWeight: FontWeight.w500,
-      letterSpacing: 0.4,
+      letterSpacing: 0.5,
     ),
     this.buttonColor = const Color(0x44FFFFFF),
     this.buttonIconColor = Colors.white,
-    this.successColor = const Color(0xFF00E676),
+    this.successColor = const Color(0xFF69F0AE),
   });
 
-  /// A dark neon-cyan theme (default).
+  /// Cyber — deep violet brackets, electric cyan scan line, dark overlay.
   static const ScannerTheme neon = ScannerTheme();
 
-  /// A clean light-mode theme — white corners, sky-blue scan line, soft overlay.
+  /// Aurora — warm gold brackets, amber scan line, soft overlay.
   static const ScannerTheme light = ScannerTheme(
     overlayColor: Color(0x55000000),
-    borderColor: Colors.white,
-    borderRadius: 20.0,
+    borderColor: Color(0xFFFFD740),
+    borderRadius: 22.0,
     borderStrokeWidth: 3.0,
-    cornerLength: 30.0,
-    scanLineColor: Color(0xFF80DEEA),
-    scanLineHeight: 2.0,
-    scanLineAnimationDuration: Duration(milliseconds: 2200),
-    glassTintColor: Color(0x44FFFFFF),
-    glassBlurSigma: 16.0,
-    successColor: Color(0xFF69F0AE),
+    cornerLength: 34.0,
+    scanLineColor: Color(0xFFFFAB40),
+    scanLineHeight: 2.5,
+    scanLineAnimationDuration: Duration(milliseconds: 2000),
+    glassTintColor: Color(0x18FFD740),
+    glassBlurSigma: 20.0,
     hintTextStyle: TextStyle(
       color: Colors.white,
       fontSize: 14,
@@ -91,13 +90,25 @@ class ScannerTheme {
     ),
   );
 
-  /// A pure-white/minimal theme for branded apps.
+  /// Ghost — ultra-thin white brackets, heavy vignette, stealth aesthetic.
   static const ScannerTheme minimal = ScannerTheme(
-    overlayColor: Color(0x99000000),
+    overlayColor: Color(0xCC000000),
     borderColor: Colors.white,
-    scanLineColor: Colors.white,
-    successColor: Colors.white,
-    glassBlurSigma: 8.0,
+    borderRadius: 26.0,
+    borderStrokeWidth: 2.0,
+    cornerLength: 24.0,
+    scanLineColor: Color(0xAAFFFFFF),
+    scanLineHeight: 1.5,
+    scanLineAnimationDuration: Duration(milliseconds: 2600),
+    glassTintColor: Color(0x0AFFFFFF),
+    glassBlurSigma: 14.0,
+    successColor: Color(0xFFFFFFFF),
+    hintTextStyle: TextStyle(
+      color: Colors.white70,
+      fontSize: 13,
+      fontWeight: FontWeight.w400,
+      letterSpacing: 0.8,
+    ),
   );
 
   ScannerTheme copyWith({

@@ -314,11 +314,11 @@ class SmartQrScannerController extends ChangeNotifier {
     _isDisposed = true;
     _cancelTimeoutTimer();
     _duplicateTimer?.cancel();
-    await _subscription?.cancel();
+    await _subscription?.cancel();    // stop handler first
+    await _scanBroadcast.close();     // then close broadcasts before engine emits more
+    await _rawBroadcast.close();
     if (_isInitialized) await _engine.dispose();
     await FeedbackService.dispose();
-    await _scanBroadcast.close();
-    await _rawBroadcast.close();
     super.dispose();
   }
 }

@@ -76,8 +76,10 @@ class _ScanSuccessAnimationState extends State<ScanSuccessAnimation>
 
   Future<void> _runSequence() async {
     await _flashCtrl.forward();
+    if (!mounted) return;
     _rippleCtrl.forward();
     await _checkCtrl.forward();
+    if (!mounted) return;
     widget.onComplete?.call();
   }
 
