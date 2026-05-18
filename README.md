@@ -83,7 +83,7 @@ A **production-ready** Flutter package for real-time QR code and barcode scannin
 
 ```yaml
 dependencies:
-  smart_qr_scanner: ^1.3.0
+  smart_qr_scanner: ^1.4.0
 ```
 
 ```bash

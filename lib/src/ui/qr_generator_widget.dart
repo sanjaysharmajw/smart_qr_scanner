@@ -165,8 +165,9 @@ QrImage? buildQrImage(String data) {
       data: data,
       errorCorrectLevel: QrErrorCorrectLevel.M,
     );
+
     return QrImage(qrCode);
-  } catch (_) {
+  } catch (e) {
     return null;
   }
 }
