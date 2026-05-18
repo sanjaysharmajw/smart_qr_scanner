@@ -72,6 +72,8 @@ class ScannerEngine {
       throw ScannerException('Camera init failed: $e');
     }
 
+    await _loadZoomLimits();
+
     if (config.enableAutoFocus) {
       await _cameraController.setFocusMode(FocusMode.auto).catchError((_) {});
     }
@@ -153,6 +155,31 @@ class ScannerEngine {
   bool _isInsideScanArea(Rect? bbox, Rect? scanRect) {
     if (bbox == null || scanRect == null) return true;
     return scanRect.contains(bbox.center);
+  }
+
+  double _minZoom = 1.0;
+  double _maxZoom = 1.0;
+  double _currentZoom = 1.0;
+
+  double get minZoom => _minZoom;
+  double get maxZoom => _maxZoom;
+  double get currentZoom => _currentZoom;
+
+  Future<void> _loadZoomLimits() async {
+    try {
+      _minZoom = await _cameraController.getMinZoomLevel();
+      _maxZoom = await _cameraController.getMaxZoomLevel();
+      _currentZoom = _minZoom;
+    } catch (_) {}
+  }
+
+  Future<void> setZoom(double zoom) async {
+    if (!_cameraController.value.isInitialized) return;
+    final clamped = zoom.clamp(_minZoom, _maxZoom);
+    try {
+      await _cameraController.setZoomLevel(clamped);
+      _currentZoom = clamped;
+    } catch (_) {}
   }
 
   /// Toggles the torch / flashlight.

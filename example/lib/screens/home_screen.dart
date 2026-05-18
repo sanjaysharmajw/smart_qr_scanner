@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:smart_qr_scanner/smart_qr_scanner.dart';
 import 'scanner_screen.dart';
 import 'history_screen.dart';
+import 'generator_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -159,6 +160,15 @@ class _HomeScreenState extends State<HomeScreen> {
                       context,
                       MaterialPageRoute(
                           builder: (_) => HistoryScreen(items: _history)),
+                    ),
+                  ),
+                  _FeatureBtn(
+                    icon: Icons.qr_code_rounded,
+                    label: 'Generator',
+                    color: const Color(0xFF00BFA5),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const GeneratorScreen()),
                     ),
                   ),
                 ],

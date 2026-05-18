@@ -80,6 +80,10 @@ class SmartQrScannerController extends ChangeNotifier {
   CameraController? get cameraController =>
       _isInitialized ? _engine.cameraController : null;
 
+  double get minZoom => _isInitialized ? _engine.minZoom : 1.0;
+  double get maxZoom => _isInitialized ? _engine.maxZoom : 1.0;
+  double get currentZoom => _isInitialized ? _engine.currentZoom : 1.0;
+
   SmartQrScannerController({required this.config}) {
     _history = HistoryService(maxItems: config.maxHistoryItems);
   }
@@ -93,6 +97,7 @@ class SmartQrScannerController extends ChangeNotifier {
     _isInitializing = true;
 
     await FeedbackService.init();
+    await _history.load();
 
     _permissionStatus = await PermissionService.requestCamera();
     notifyListeners();
@@ -149,6 +154,12 @@ class SmartQrScannerController extends ChangeNotifier {
     if (!_isInitialized) return;
     await _engine.toggleFlash();
     _isFlashOn = _engine.isFlashOn;
+    notifyListeners();
+  }
+
+  Future<void> setZoom(double zoom) async {
+    if (!_isInitialized) return;
+    await _engine.setZoom(zoom);
     notifyListeners();
   }
 
@@ -211,6 +222,7 @@ class SmartQrScannerController extends ChangeNotifier {
       FeedbackService.scanSuccess(
         vibrate: config.enableVibration,
         sound: config.enableSound,
+        barcodeType: result.type,
       );
       if (!_scanBroadcast.isClosed) _scanBroadcast.add(result);
       onScan?.call(result);
@@ -261,6 +273,7 @@ class SmartQrScannerController extends ChangeNotifier {
       FeedbackService.scanSuccess(
         vibrate: config.enableVibration,
         sound: config.enableSound,
+        barcodeType: enriched.type,
       );
 
       if (!_scanBroadcast.isClosed) _scanBroadcast.add(enriched);

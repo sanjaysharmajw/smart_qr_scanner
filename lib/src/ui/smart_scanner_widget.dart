@@ -58,6 +58,7 @@ class SmartScannerWidgetState extends State<SmartScannerWidget>
 
   bool _showSuccess = false;
   bool _detecting = false;
+  double _baseZoom = 1.0;
 
   StreamSubscription<SmartScanResult>? _scanSub;
   StreamSubscription<List<SmartScanResult>>? _rawSub;
@@ -157,7 +158,13 @@ class SmartScannerWidgetState extends State<SmartScannerWidget>
         height: scanH,
       );
 
-      return Stack(children: [
+      return GestureDetector(
+        onScaleStart: (_) => _baseZoom = ctrl.currentZoom,
+        onScaleUpdate: (d) {
+          if (d.pointerCount < 2) return;
+          ctrl.setZoom(_baseZoom * d.scale);
+        },
+        child: Stack(children: [
         // 1. Full-screen camera feed (black placeholder while switching)
         Positioned.fill(
           child: ctrl.isSwitching
@@ -276,7 +283,7 @@ class SmartScannerWidgetState extends State<SmartScannerWidget>
               ),
             ),
           ),
-      ]);
+      ]));
     });
   }
 

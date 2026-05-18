@@ -26,8 +26,12 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Camera access is required to scan QR codes and barcodes.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Required to pick images from your gallery for QR code scanning.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Microphone access is not used but required by the camera plugin.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

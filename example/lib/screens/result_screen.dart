@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:smart_qr_scanner/smart_qr_scanner.dart';
 import 'scanner_screen.dart';
+import 'package:share_plus/share_plus.dart';
 
 class ResultScreen extends StatefulWidget {
   final SmartScanResult result;
@@ -119,7 +120,10 @@ class _ResultScreenState extends State<ResultScreen>
                   letterSpacing: -0.2),
             ),
           ),
-          const SizedBox(width: 40),
+          FavoriteButton.forValue(
+            widget.result.rawValue,
+            activeColor: Colors.amber,
+          ),
         ],
       ),
     );
@@ -357,6 +361,7 @@ class _ResultScreenState extends State<ResultScreen>
   }
 
   Widget _buildActions(BuildContext context) {
+    final canOpen = SmartUrlHandler.canHandle(widget.result);
     return Column(
       children: [
         _PrimaryButton(
@@ -381,6 +386,24 @@ class _ResultScreenState extends State<ResultScreen>
               ),
             );
           },
+        ),
+        if (canOpen) ...[
+          const SizedBox(height: 12),
+          _PrimaryButton(
+            icon: Icons.open_in_new_rounded,
+            label: SmartUrlHandler.actionLabel(widget.result),
+            gradient: const LinearGradient(
+              colors: [Color(0xFF7B2FFF), Color(0xFFAB5CFA)],
+            ),
+            glowColor: const Color(0xFF7B2FFF),
+            onTap: () => SmartUrlHandler.launch(widget.result),
+          ),
+        ],
+        const SizedBox(height: 12),
+        _SecondaryButton(
+          icon: Icons.share_rounded,
+          label: 'Share',
+          onTap: () => Share.share(widget.result.rawValue),
         ),
         const SizedBox(height: 12),
         _SecondaryButton(

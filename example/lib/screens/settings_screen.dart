@@ -491,7 +491,7 @@ class _Toggle extends StatelessWidget {
         Switch(
           value: value,
           onChanged: onChanged,
-          activeColor: iconColor,
+          activeThumbColor: iconColor,
           activeTrackColor: iconColor.withAlpha(50),
           inactiveThumbColor: Colors.white38,
           inactiveTrackColor: Colors.white.withAlpha(15),

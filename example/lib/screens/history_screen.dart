@@ -78,7 +78,23 @@ class _HistoryScreenState extends State<HistoryScreen> {
               ],
             ),
           ),
-          if (count > 0)
+          if (count > 0) ...[
+            GestureDetector(
+              onTap: () => HistoryExporter.exportCsv(widget.items),
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF00E5FF).withAlpha(20),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                      color: const Color(0xFF00E5FF).withAlpha(50), width: 1),
+                ),
+                child: const Icon(Icons.download_rounded,
+                    color: Color(0xFF00E5FF), size: 20),
+              ),
+            ),
+            const SizedBox(width: 8),
             GestureDetector(
               onTap: () => _confirmClear(context),
               child: Container(
@@ -94,6 +110,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     color: Color(0xFFFF6B6B), size: 20),
               ),
             ),
+          ],
         ],
       ),
     );
@@ -393,7 +410,7 @@ class _HistoryTile extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
+              FavoriteButton.forValue(result.rawValue, activeColor: Colors.amber),
               GestureDetector(
                 onTap: () {
                   Clipboard.setData(ClipboardData(text: result.rawValue));

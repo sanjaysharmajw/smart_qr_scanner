@@ -6,6 +6,16 @@ import 'package:google_mlkit_barcode_scanning/google_mlkit_barcode_scanning.dart
 /// The outcome category of a scan attempt.
 enum ScanResultType { success, duplicate, error, timeout }
 
+BarcodeFormat _formatFromIndex(int index) {
+  const values = BarcodeFormat.values;
+  return index >= 0 && index < values.length ? values[index] : BarcodeFormat.unknown;
+}
+
+BarcodeType _typeFromIndex(int index) {
+  const values = BarcodeType.values;
+  return index >= 0 && index < values.length ? values[index] : BarcodeType.unknown;
+}
+
 /// Immutable representation of a single scan event.
 @immutable
 class SmartScanResult {
@@ -170,6 +180,69 @@ class SmartScanResult {
         confidence: confidence ?? this.confidence,
         metadata: metadata ?? this.metadata,
       );
+
+  Map<String, dynamic> toJson() => {
+        'rawValue': rawValue,
+        if (displayValue != null) 'displayValue': displayValue,
+        'format': format.index,
+        'type': type.index,
+        'timestamp': timestamp.toIso8601String(),
+        'resultType': resultType.name,
+        if (confidence != null) 'confidence': confidence,
+        if (boundingBox != null)
+          'boundingBox': {
+            'l': boundingBox!.left,
+            't': boundingBox!.top,
+            'r': boundingBox!.right,
+            'b': boundingBox!.bottom,
+          },
+        if (cornerPoints != null)
+          'cornerPoints': cornerPoints!
+              .map((o) => {'x': o.dx, 'y': o.dy})
+              .toList(),
+        'metadata': metadata,
+      };
+
+  factory SmartScanResult.fromJson(Map<String, dynamic> json) {
+    Rect? bbox;
+    final bj = json['boundingBox'];
+    if (bj is Map) {
+      bbox = Rect.fromLTRB(
+        (bj['l'] as num).toDouble(),
+        (bj['t'] as num).toDouble(),
+        (bj['r'] as num).toDouble(),
+        (bj['b'] as num).toDouble(),
+      );
+    }
+
+    List<Offset>? corners;
+    final cj = json['cornerPoints'];
+    if (cj is List) {
+      corners = cj
+          .cast<Map<String, dynamic>>()
+          .map((p) => Offset(
+                (p['x'] as num).toDouble(),
+                (p['y'] as num).toDouble(),
+              ))
+          .toList();
+    }
+
+    return SmartScanResult(
+      rawValue: json['rawValue'] as String,
+      displayValue: json['displayValue'] as String?,
+      format: _formatFromIndex(json['format'] as int? ?? 0),
+      type: _typeFromIndex(json['type'] as int? ?? 0),
+      timestamp: DateTime.parse(json['timestamp'] as String),
+      resultType: ScanResultType.values.firstWhere(
+        (r) => r.name == json['resultType'],
+        orElse: () => ScanResultType.success,
+      ),
+      confidence: (json['confidence'] as num?)?.toDouble(),
+      boundingBox: bbox,
+      cornerPoints: corners,
+      metadata: (json['metadata'] as Map<String, dynamic>?) ?? const {},
+    );
+  }
 
   @override
   bool operator ==(Object other) =>
