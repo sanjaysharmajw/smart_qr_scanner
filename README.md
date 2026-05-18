@@ -686,5 +686,5 @@ The image must contain a clear, unobstructed barcode. Blurry, rotated, or very s
 ## License
 
 ```
-MIT License — Copyright (c) 2024
+MIT License — Copyright (c) 2026 Sanjay Sharma
 ```
