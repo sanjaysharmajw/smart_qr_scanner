@@ -307,15 +307,25 @@ class SmartScannerWidgetState extends State<SmartScannerWidget>
   Widget _buildLoading() =>
       widget.loadingWidget ?? _LoadingScreen(theme: widget.theme);
 
-  Widget _buildError(String message) =>
-      widget.errorWidget ??
-      _FullScreenState(
-        icon: Icons.error_outline_rounded,
-        iconColor: const Color(0xFFFF6B6B),
-        title: 'Camera Error',
-        subtitle: message,
+  Widget _buildError(String message) {
+    if (message == '__ios_simulator__') {
+      return const _FullScreenState(
+        icon: Icons.phone_iphone_rounded,
+        iconColor: Color(0xFF00BCD4),
+        title: 'iOS Simulator',
+        subtitle: 'The iOS Simulator has no physical camera.\n\nRun the app on a real iPhone or iPad to use the scanner.',
         child: null,
       );
+    }
+    return widget.errorWidget ??
+        _FullScreenState(
+          icon: Icons.error_outline_rounded,
+          iconColor: const Color(0xFFFF6B6B),
+          title: 'Camera Error',
+          subtitle: message,
+          child: null,
+        );
+  }
 
   Widget _buildPermissionDenied() => _FullScreenState(
         icon: Icons.camera_alt_outlined,

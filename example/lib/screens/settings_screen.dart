@@ -11,7 +11,6 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   ScanMode _scanMode = ScanMode.single;
   bool _vibration = true;
-  bool _sound = true;
   bool _boundingBox = true;
   bool _preventDuplicates = true;
   bool _autoFocus = true;
@@ -51,15 +50,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           subtitle: 'Haptic feedback on scan',
                           value: _vibration,
                           onChanged: (v) => setState(() => _vibration = v),
-                        ),
-                        _divider(),
-                        _Toggle(
-                          icon: Icons.volume_up_rounded,
-                          iconColor: const Color(0xFF00E676),
-                          title: 'Sound',
-                          subtitle: 'Beep tone on scan',
-                          value: _sound,
-                          onChanged: (v) => setState(() => _sound = v),
                         ),
                       ],
                     ),

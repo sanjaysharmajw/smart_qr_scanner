@@ -1,6 +1,6 @@
 name: smart_qr_scanner
 description: A production-ready Flutter package for real-time QR code and barcode scanning using Google ML Kit with beautiful modern UI, animations, and advanced features.
-version: 1.0.0
+version: 1.1.0
 homepage: https://github.com/yourusername/smart_qr_scanner
 repository: https://github.com/yourusername/smart_qr_scanner
 issue_tracker: https://github.com/yourusername/smart_qr_scanner/issues
@@ -16,13 +16,13 @@ dependencies:
   camera: ^0.11.0+2
   permission_handler: ^11.3.1
   vibration: ^2.0.0
-  audioplayers: ^6.1.0
   image_picker: ^1.1.2
-  qr_flutter: ^4.1.0
+  qr: ^3.0.0
   url_launcher: ^6.3.0
   share_plus: ^10.0.0
   shared_preferences: ^2.3.0
   path_provider: ^2.1.0
+  gal: ^2.3.0
 
 dev_dependencies:
   flutter_test:
@@ -30,5 +30,3 @@ dev_dependencies:
   flutter_lints: ^3.0.0
 
 flutter:
-  assets:
-    - assets/sounds/

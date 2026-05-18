@@ -6,16 +6,20 @@ class ScannerScreen extends StatefulWidget {
   final ScannerConfig config;
   final ScannerTheme theme;
   final void Function(SmartScanResult)? onResult;
+  /// Optional pre-initialized controller. When provided, [initialize()] is NOT
+  /// called again — the caller already started it before pushing this route so
+  /// the camera is ready faster.
+  final SmartQrScannerController? controller;
 
   const ScannerScreen({
     super.key,
     this.config = const ScannerConfig(
       scanMode: ScanMode.single,
       enableVibration: true,
-      enableSound: true,
     ),
     this.theme = ScannerTheme.light,
     this.onResult,
+    this.controller,
   });
 
   @override
@@ -38,11 +42,14 @@ class _ScannerScreenState extends State<ScannerScreen> with SingleTickerProvider
       duration: const Duration(milliseconds: 600),
     )..forward();
     _fadeAnim = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOut);
-    _controller = SmartQrScannerController(config: widget.config);
+    // Use pre-created controller if the caller already started initialize().
+    _controller = widget.controller ?? SmartQrScannerController(config: widget.config);
     _controller.onScan = _onScan;
     _controller.onTimeout = _onTimeout;
     _controller.onError = _onError;
-    _controller.initialize();
+    if (widget.controller == null) {
+      _controller.initialize();
+    }
   }
 
   void _onScan(SmartScanResult result) {

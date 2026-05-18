@@ -4,6 +4,25 @@ import 'package:smart_qr_scanner/smart_qr_scanner.dart';
 import 'scanner_screen.dart';
 import 'package:share_plus/share_plus.dart';
 
+// ── Design tokens (mirror home_screen) ───────────────────────────────────────
+abstract final class _C {
+  static const bg      = Color(0xFFF0F7FF);
+  static const primary = Color(0xFF00BCD4);
+  static const dark    = Color(0xFF00838F);
+  static const text    = Color(0xFF1A1A2E);
+  static const mid     = Color(0xFF6B7280);
+  static const light   = Color(0xFFB0B8C4);
+  static const border  = Color(0xFFE8EFF8);
+  static const success = Color(0xFF00C48C);
+  static const error   = Color(0xFFFF5B5B);
+
+  static const gradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFF00BCD4), Color(0xFF006064)],
+  );
+}
+
 class ResultScreen extends StatefulWidget {
   final SmartScanResult result;
   const ResultScreen({super.key, required this.result});
@@ -14,75 +33,48 @@ class ResultScreen extends StatefulWidget {
 
 class _ResultScreenState extends State<ResultScreen>
     with SingleTickerProviderStateMixin {
-  late AnimationController _checkCtrl;
-  late Animation<double> _checkScale;
-  late Animation<double> _checkFade;
+  late AnimationController _ctrl;
+  late Animation<double> _scale;
+  late Animation<double> _fade;
 
   @override
   void initState() {
     super.initState();
-    _checkCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 700),
-    )..forward();
-    _checkScale = CurvedAnimation(
-        parent: _checkCtrl, curve: const Interval(0, 0.7, curve: Curves.elasticOut));
-    _checkFade = CurvedAnimation(
-        parent: _checkCtrl, curve: const Interval(0, 0.4, curve: Curves.easeOut));
+    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 700))
+      ..forward();
+    _scale = CurvedAnimation(parent: _ctrl, curve: const Interval(0, 0.7, curve: Curves.elasticOut));
+    _fade  = CurvedAnimation(parent: _ctrl, curve: const Interval(0, 0.4, curve: Curves.easeOut));
   }
 
   @override
   void dispose() {
-    _checkCtrl.dispose();
+    _ctrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
+      backgroundColor: _C.bg,
+      body: Column(
         children: [
-          // Ambient glow
-          Positioned(
-            top: -100,
-            left: MediaQuery.of(context).size.width / 2 - 150,
-            child: Container(
-              width: 300,
-              height: 300,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    const Color(0xFF00E676).withAlpha(40),
-                    Colors.transparent,
-                  ],
-                ),
+          _buildGradientHeader(context),
+          Expanded(
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+              child: Column(
+                children: [
+                  const SizedBox(height: 20),
+                  _buildSuccessBadge(),
+                  const SizedBox(height: 24),
+                  _buildResultCard(),
+                  const SizedBox(height: 14),
+                  _buildMetaCard(),
+                  const SizedBox(height: 24),
+                  _buildActions(context),
+                ],
               ),
-            ),
-          ),
-          SafeArea(
-            child: Column(
-              children: [
-                _buildAppBar(context),
-                Expanded(
-                  child: SingleChildScrollView(
-                    physics: const BouncingScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
-                    child: Column(
-                      children: [
-                        const SizedBox(height: 24),
-                        _buildSuccessBadge(),
-                        const SizedBox(height: 28),
-                        _buildResultCard(),
-                        const SizedBox(height: 16),
-                        _buildMetaCard(),
-                        const SizedBox(height: 28),
-                        _buildActions(context),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
             ),
           ),
         ],
@@ -90,100 +82,104 @@ class _ResultScreenState extends State<ResultScreen>
     );
   }
 
-  Widget _buildAppBar(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      child: Row(
-        children: [
-          GestureDetector(
-            onTap: () => Navigator.pop(context),
-            child: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: Colors.white.withAlpha(12),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.white.withAlpha(20), width: 1),
+  Widget _buildGradientHeader(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: _C.gradient,
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
+      ),
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+          child: Row(
+            children: [
+              GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withAlpha(25),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white.withAlpha(50), width: 1),
+                  ),
+                  child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 20),
+                ),
               ),
-              child: const Icon(Icons.arrow_back_rounded,
-                  color: Colors.white, size: 20),
-            ),
+              const Expanded(
+                child: Text(
+                  'Scan Result',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+              ),
+              FavoriteButton.forValue(
+                widget.result.rawValue,
+                activeColor: Colors.amber,
+              ),
+            ],
           ),
-          const Expanded(
-            child: Text(
-              'Scan Result',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 17,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.2),
-            ),
-          ),
-          FavoriteButton.forValue(
-            widget.result.rawValue,
-            activeColor: Colors.amber,
-          ),
-        ],
+        ),
       ),
     );
   }
 
   Widget _buildSuccessBadge() {
     return AnimatedBuilder(
-      animation: _checkCtrl,
+      animation: _ctrl,
       builder: (_, __) => FadeTransition(
-        opacity: _checkFade,
+        opacity: _fade,
         child: Column(
           children: [
             Transform.scale(
-              scale: _checkScale.value,
+              scale: _scale.value,
               child: Stack(
                 alignment: Alignment.center,
                 children: [
                   Container(
-                    width: 120,
-                    height: 120,
+                    width: 110,
+                    height: 110,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: RadialGradient(
-                        colors: [
-                          const Color(0xFF00E676).withAlpha(40),
-                          Colors.transparent,
-                        ],
+                        colors: [_C.success.withAlpha(40), Colors.transparent],
                       ),
                     ),
                   ),
                   Container(
-                    width: 88,
-                    height: 88,
+                    width: 80,
+                    height: 80,
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
-                        colors: [Color(0xFF00E676), Color(0xFF00C853)],
+                        colors: [Color(0xFF00C48C), Color(0xFF00A574)],
                       ),
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF00E676).withAlpha(100),
-                          blurRadius: 30,
-                          spreadRadius: 0,
-                          offset: const Offset(0, 10),
+                          color: _C.success.withAlpha(100),
+                          blurRadius: 24,
+                          offset: const Offset(0, 8),
                         ),
                       ],
                     ),
-                    child:
-                        const Icon(Icons.check_rounded, color: Colors.white, size: 44),
+                    child: const Icon(Icons.check_rounded, color: Colors.white, size: 40),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
             const Text(
               'Scan Successful!',
               style: TextStyle(
-                color: Color(0xFF00E676),
+                color: _C.success,
                 fontWeight: FontWeight.w800,
                 fontSize: 20,
                 letterSpacing: -0.3,
@@ -192,7 +188,7 @@ class _ResultScreenState extends State<ResultScreen>
             const SizedBox(height: 4),
             Text(
               _formatTime(widget.result.timestamp),
-              style: TextStyle(color: Colors.white.withAlpha(100), fontSize: 13),
+              style: const TextStyle(color: _C.mid, fontSize: 13),
             ),
           ],
         ),
@@ -204,10 +200,12 @@ class _ResultScreenState extends State<ResultScreen>
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: const Color(0xFF16161F),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-            color: const Color(0xFF00E5FF).withAlpha(40), width: 1),
+        boxShadow: [
+          BoxShadow(color: _C.primary.withAlpha(20), blurRadius: 20, offset: const Offset(0, 6)),
+          BoxShadow(color: Colors.black.withAlpha(6), blurRadius: 8, offset: const Offset(0, 2)),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -217,25 +215,20 @@ class _ResultScreenState extends State<ResultScreen>
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [
-                  const Color(0xFF00E5FF).withAlpha(20),
-                  const Color(0xFF7B2FFF).withAlpha(10),
-                ],
+                colors: [_C.primary.withAlpha(18), _C.dark.withAlpha(10)],
               ),
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(24)),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
             ),
             child: Row(
               children: [
                 Container(
-                  width: 36,
-                  height: 36,
+                  width: 38,
+                  height: 38,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF00E5FF).withAlpha(30),
-                    borderRadius: BorderRadius.circular(10),
+                    color: _C.primary.withAlpha(25),
+                    borderRadius: BorderRadius.circular(11),
                   ),
-                  child: const Icon(Icons.qr_code_2_rounded,
-                      color: Color(0xFF00E5FF), size: 20),
+                  child: const Icon(Icons.qr_code_2_rounded, color: _C.primary, size: 20),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -245,15 +238,15 @@ class _ResultScreenState extends State<ResultScreen>
                       Text(
                         widget.result.typeName,
                         style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 15,
-                            letterSpacing: -0.2),
+                          color: _C.text,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 15,
+                          letterSpacing: -0.2,
+                        ),
                       ),
                       Text(
                         widget.result.formatName,
-                        style: TextStyle(
-                            color: Colors.white.withAlpha(120), fontSize: 12),
+                        style: const TextStyle(color: _C.mid, fontSize: 12),
                       ),
                     ],
                   ),
@@ -269,9 +262,9 @@ class _ResultScreenState extends State<ResultScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Raw Value',
+                const Text('Raw Value',
                     style: TextStyle(
-                        color: Colors.white.withAlpha(100),
+                        color: _C.light,
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
                         letterSpacing: 0.5)),
@@ -280,15 +273,14 @@ class _ResultScreenState extends State<ResultScreen>
                   width: double.infinity,
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: Colors.black.withAlpha(60),
+                    color: _C.bg,
                     borderRadius: BorderRadius.circular(14),
-                    border:
-                        Border.all(color: Colors.white.withAlpha(15), width: 1),
+                    border: Border.all(color: _C.border, width: 1),
                   ),
                   child: SelectableText(
                     widget.result.rawValue,
                     style: const TextStyle(
-                      color: Colors.white,
+                      color: _C.text,
                       fontSize: 14,
                       height: 1.6,
                       fontFamily: 'monospace',
@@ -298,17 +290,16 @@ class _ResultScreenState extends State<ResultScreen>
                 if (widget.result.displayValue != null &&
                     widget.result.displayValue != widget.result.rawValue) ...[
                   const SizedBox(height: 14),
-                  Text('Display Value',
+                  const Text('Display Value',
                       style: TextStyle(
-                          color: Colors.white.withAlpha(100),
+                          color: _C.light,
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
                           letterSpacing: 0.5)),
                   const SizedBox(height: 8),
                   Text(
                     widget.result.displayValue!,
-                    style: const TextStyle(
-                        color: Color(0xFF00E5FF), fontSize: 14, height: 1.5),
+                    style: const TextStyle(color: _C.primary, fontSize: 14, height: 1.5),
                   ),
                 ],
               ],
@@ -324,8 +315,7 @@ class _ResultScreenState extends State<ResultScreen>
       ('Format', widget.result.formatName),
       ('Type', widget.result.typeName),
       if (widget.result.confidence != null)
-        ('Confidence',
-            '${(widget.result.confidence! * 100).toStringAsFixed(0)}%'),
+        ('Confidence', '${(widget.result.confidence! * 100).toStringAsFixed(0)}%'),
       ...widget.result.metadata.entries.map((e) => (
             e.key[0].toUpperCase() + e.key.substring(1),
             e.value?.toString() ?? '—',
@@ -335,25 +325,23 @@ class _ResultScreenState extends State<ResultScreen>
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: const Color(0xFF16161F),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withAlpha(12), width: 1),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withAlpha(6), blurRadius: 10, offset: const Offset(0, 3)),
+        ],
       ),
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text('Details',
-              style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 15,
-                  letterSpacing: -0.2)),
-          const SizedBox(height: 16),
+              style: TextStyle(color: _C.text, fontWeight: FontWeight.w700, fontSize: 15, letterSpacing: -0.2)),
+          const SizedBox(height: 14),
           for (int i = 0; i < entries.length; i++) ...[
             _metaRow(entries[i].$1, entries[i].$2),
             if (i < entries.length - 1)
-              Divider(color: Colors.white.withAlpha(10), height: 1),
+              const Divider(color: _C.border, height: 1),
           ],
         ],
       ),
@@ -364,60 +352,63 @@ class _ResultScreenState extends State<ResultScreen>
     final canOpen = SmartUrlHandler.canHandle(widget.result);
     return Column(
       children: [
-        _PrimaryButton(
+        _PrimaryBtn(
           icon: Icons.copy_all_rounded,
           label: 'Copy to Clipboard',
-          gradient: const LinearGradient(
-            colors: [Color(0xFF00B4D8), Color(0xFF00E5FF)],
-          ),
-          glowColor: const Color(0xFF00E5FF),
+          gradient: _C.gradient,
           onTap: () {
             Clipboard.setData(ClipboardData(text: widget.result.rawValue));
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: const Row(children: [
-                  Icon(Icons.check_circle_rounded, color: Color(0xFF00E676), size: 18),
+                  Icon(Icons.check_circle_rounded, color: _C.success, size: 18),
                   SizedBox(width: 10),
                   Text('Copied to clipboard'),
                 ]),
                 behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               ),
             );
           },
         ),
         if (canOpen) ...[
           const SizedBox(height: 12),
-          _PrimaryButton(
+          _PrimaryBtn(
             icon: Icons.open_in_new_rounded,
             label: SmartUrlHandler.actionLabel(widget.result),
             gradient: const LinearGradient(
-              colors: [Color(0xFF7B2FFF), Color(0xFFAB5CFA)],
+              colors: [Color(0xFF7C3AED), Color(0xFFAB5CFA)],
             ),
-            glowColor: const Color(0xFF7B2FFF),
             onTap: () => SmartUrlHandler.launch(widget.result),
           ),
         ],
         const SizedBox(height: 12),
-        _SecondaryButton(
-          icon: Icons.share_rounded,
-          label: 'Share',
-          onTap: () => Share.share(widget.result.rawValue),
-        ),
-        const SizedBox(height: 12),
-        _SecondaryButton(
-          icon: Icons.qr_code_scanner_rounded,
-          label: 'Scan Another',
-          onTap: () => Navigator.pushReplacement(
-            context,
-            PageRouteBuilder(
-              pageBuilder: (_, anim, __) => const ScannerScreen(),
-              transitionsBuilder: (_, anim, __, child) =>
-                  FadeTransition(opacity: anim, child: child),
-              transitionDuration: const Duration(milliseconds: 350),
+        Row(
+          children: [
+            Expanded(
+              child: _SecondaryBtn(
+                icon: Icons.share_rounded,
+                label: 'Share',
+                onTap: () => Share.share(widget.result.rawValue),
+              ),
             ),
-          ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _SecondaryBtn(
+                icon: Icons.qr_code_scanner_rounded,
+                label: 'Scan Again',
+                onTap: () => Navigator.pushReplacement(
+                  context,
+                  PageRouteBuilder(
+                    pageBuilder: (_, anim, __) => const ScannerScreen(),
+                    transitionsBuilder: (_, anim, __, child) =>
+                        FadeTransition(opacity: anim, child: child),
+                    transitionDuration: const Duration(milliseconds: 350),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -426,20 +417,19 @@ class _ResultScreenState extends State<ResultScreen>
   Widget _confidencePill(double confidence) {
     final pct = (confidence * 100).toStringAsFixed(0);
     final color = confidence > 0.9
-        ? const Color(0xFF00E676)
+        ? _C.success
         : confidence > 0.7
-            ? const Color(0xFFFFB703)
-            : const Color(0xFFFF6B6B);
+            ? const Color(0xFFF59E0B)
+            : _C.error;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: color.withAlpha(25),
+        color: color.withAlpha(20),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: color.withAlpha(80), width: 1),
       ),
       child: Text('$pct%',
-          style:
-              TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w700)),
+          style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w700)),
     );
   }
 
@@ -450,14 +440,11 @@ class _ResultScreenState extends State<ResultScreen>
           children: [
             SizedBox(
               width: 110,
-              child: Text(label,
-                  style: TextStyle(
-                      color: Colors.white.withAlpha(120), fontSize: 13)),
+              child: Text(label, style: const TextStyle(color: _C.mid, fontSize: 13)),
             ),
             Expanded(
               child: Text(value,
-                  style: const TextStyle(
-                      color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500)),
+                  style: const TextStyle(color: _C.text, fontSize: 13, fontWeight: FontWeight.w600)),
             ),
           ],
         ),
@@ -470,19 +457,14 @@ class _ResultScreenState extends State<ResultScreen>
   }
 }
 
-class _PrimaryButton extends StatelessWidget {
+// ── Buttons ───────────────────────────────────────────────────────────────────
+
+class _PrimaryBtn extends StatelessWidget {
   final IconData icon;
   final String label;
   final LinearGradient gradient;
-  final Color glowColor;
   final VoidCallback onTap;
-  const _PrimaryButton({
-    required this.icon,
-    required this.label,
-    required this.gradient,
-    required this.glowColor,
-    required this.onTap,
-  });
+  const _PrimaryBtn({required this.icon, required this.label, required this.gradient, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -495,20 +477,20 @@ class _PrimaryButton extends StatelessWidget {
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: glowColor.withAlpha(80),
-              blurRadius: 24,
-              offset: const Offset(0, 8),
+              color: gradient.colors.first.withAlpha(80),
+              blurRadius: 20,
+              offset: const Offset(0, 7),
             ),
           ],
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: Colors.black, size: 22),
+            Icon(icon, color: Colors.white, size: 22),
             const SizedBox(width: 10),
             Text(label,
                 style: const TextStyle(
-                    color: Colors.black,
+                    color: Colors.white,
                     fontWeight: FontWeight.w800,
                     fontSize: 16,
                     letterSpacing: -0.2)),
@@ -519,12 +501,11 @@ class _PrimaryButton extends StatelessWidget {
   }
 }
 
-class _SecondaryButton extends StatelessWidget {
+class _SecondaryBtn extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
-  const _SecondaryButton(
-      {required this.icon, required this.label, required this.onTap});
+  const _SecondaryBtn({required this.icon, required this.label, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -533,20 +514,22 @@ class _SecondaryButton extends StatelessWidget {
       child: Container(
         height: 58,
         decoration: BoxDecoration(
-          color: Colors.white.withAlpha(12),
+          color: Colors.white,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.white.withAlpha(20), width: 1),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withAlpha(8), blurRadius: 12, offset: const Offset(0, 3)),
+          ],
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: Colors.white70, size: 22),
-            const SizedBox(width: 10),
+            Icon(icon, color: _C.primary, size: 20),
+            const SizedBox(width: 8),
             Text(label,
                 style: const TextStyle(
-                    color: Colors.white,
+                    color: _C.text,
                     fontWeight: FontWeight.w700,
-                    fontSize: 16,
+                    fontSize: 15,
                     letterSpacing: -0.2)),
           ],
         ),

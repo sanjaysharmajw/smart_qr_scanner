@@ -28,6 +28,8 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>Camera access is required to scan QR codes and barcodes.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Required to save generated QR codes to your photo library.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Required to pick images from your gallery for QR code scanning.</string>
 	<key>NSMicrophoneUsageDescription</key>

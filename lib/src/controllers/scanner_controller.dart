@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart' show WidgetsBinding;
@@ -111,7 +112,9 @@ class SmartQrScannerController extends ChangeNotifier {
     final cameras = await availableCameras();
     if (cameras.isEmpty) {
       _isInitializing = false;
-      _setError('No cameras available on this device');
+      final isSimulator = Platform.isIOS &&
+          Platform.environment.containsKey('SIMULATOR_DEVICE_NAME');
+      _setError(isSimulator ? '__ios_simulator__' : 'No cameras available on this device');
       return;
     }
 
@@ -221,7 +224,6 @@ class SmartQrScannerController extends ChangeNotifier {
       if (config.enableScanHistory) _history.add(result);
       FeedbackService.scanSuccess(
         vibrate: config.enableVibration,
-        sound: config.enableSound,
         barcodeType: result.type,
       );
       if (!_scanBroadcast.isClosed) _scanBroadcast.add(result);
@@ -272,7 +274,6 @@ class SmartQrScannerController extends ChangeNotifier {
 
       FeedbackService.scanSuccess(
         vibrate: config.enableVibration,
-        sound: config.enableSound,
         barcodeType: enriched.type,
       );
 
@@ -331,7 +332,7 @@ class SmartQrScannerController extends ChangeNotifier {
     await _scanBroadcast.close();     // then close broadcasts before engine emits more
     await _rawBroadcast.close();
     if (_isInitialized) await _engine.dispose();
-    await FeedbackService.dispose();
+    FeedbackService.dispose();
     super.dispose();
   }
 }

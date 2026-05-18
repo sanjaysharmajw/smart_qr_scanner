@@ -1,4 +1,3 @@
-import 'package:audioplayers/audioplayers.dart';
 import 'package:google_mlkit_barcode_scanning/google_mlkit_barcode_scanning.dart';
 import 'package:vibration/vibration.dart';
 
@@ -7,9 +6,9 @@ class HapticPattern {
   final List<int> pattern; // alternating on/off durations in ms
   const HapticPattern(this.pattern);
 
-  static const short = HapticPattern([60]);
-  static const medium = HapticPattern([100]);
-  static const long = HapticPattern([200]);
+  static const short       = HapticPattern([60]);
+  static const medium      = HapticPattern([100]);
+  static const long        = HapticPattern([200]);
   static const doubleShort = HapticPattern([60, 80, 60]);
   static const tripleShort = HapticPattern([50, 60, 50, 60, 50]);
 
@@ -32,11 +31,10 @@ class HapticPattern {
   }
 }
 
-/// Provides haptic and audio feedback on scan events.
+/// Provides haptic feedback on scan events.
 class FeedbackService {
   FeedbackService._();
 
-  static final AudioPlayer _player = AudioPlayer();
   static bool _vibrationAvailable = false;
   static bool _initialized = false;
 
@@ -54,8 +52,8 @@ class FeedbackService {
     await Vibration.vibrate(duration: duration);
   }
 
-  /// Triggers a typed haptic pattern. Falls back to [vibrate] if the
-  /// device doesn't support patterns.
+  /// Triggers a typed haptic pattern. Falls back to a single pulse if the
+  /// device does not support custom patterns.
   static Future<void> vibratePattern(HapticPattern pattern) async {
     if (!_initialized) await init();
     if (!_vibrationAvailable) return;
@@ -67,37 +65,22 @@ class FeedbackService {
     }
   }
 
-  /// Plays a beep sound from the package's bundled asset.
-  /// Falls back silently if the asset is missing.
-  static Future<void> playBeep() async {
-    try {
-      await _player.play(
-        AssetSource('sounds/beep.mp3'),
-        volume: 0.6,
-      );
-    } catch (_) {
-      // Sound asset optional — fail silently.
+  /// Triggers haptic feedback on a successful scan.
+  /// Uses a type-aware pattern when [barcodeType] is provided.
+  static Future<void> scanSuccess({
+    bool vibrate = true,
+    BarcodeType? barcodeType,
+  }) async {
+    if (!vibrate) return;
+    if (barcodeType != null) {
+      await vibratePattern(HapticPattern.forType(barcodeType));
+    } else {
+      await FeedbackService.vibrate();
     }
   }
 
-  /// Runs vibration (type-aware) and optional beep in parallel.
-  static Future<void> scanSuccess({
-    bool vibrate = true,
-    bool sound = true,
-    BarcodeType? barcodeType,
-  }) async {
-    await Future.wait([
-      if (vibrate)
-        barcodeType != null
-            ? vibratePattern(HapticPattern.forType(barcodeType))
-            : FeedbackService.vibrate(),
-      if (sound) playBeep(),
-    ]);
-  }
-
-  /// Release audio resources. Call when the scanner is fully disposed.
-  static Future<void> dispose() async {
-    await _player.dispose();
+  /// Resets state. Call when the scanner is fully disposed.
+  static void dispose() {
     _initialized = false;
   }
 }

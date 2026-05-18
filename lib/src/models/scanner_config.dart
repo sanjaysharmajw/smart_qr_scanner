@@ -43,9 +43,6 @@ class ScannerConfig {
   /// Trigger haptic vibration on successful scan.
   final bool enableVibration;
 
-  /// Play a beep sound on successful scan.
-  final bool enableSound;
-
   /// Pass auto-focus hint to camera.
   final bool enableAutoFocus;
 
@@ -92,7 +89,6 @@ class ScannerConfig {
     this.formats = const [],
     this.enableFlash = false,
     this.enableVibration = true,
-    this.enableSound = true,
     this.enableAutoFocus = true,
     this.enableAutoZoom = false,
     this.preventDuplicates = true,
@@ -118,7 +114,6 @@ class ScannerConfig {
     List<BarcodeFormat>? formats,
     bool? enableFlash,
     bool? enableVibration,
-    bool? enableSound,
     bool? enableAutoFocus,
     bool? enableAutoZoom,
     bool? preventDuplicates,
@@ -139,7 +134,6 @@ class ScannerConfig {
         formats: formats ?? this.formats,
         enableFlash: enableFlash ?? this.enableFlash,
         enableVibration: enableVibration ?? this.enableVibration,
-        enableSound: enableSound ?? this.enableSound,
         enableAutoFocus: enableAutoFocus ?? this.enableAutoFocus,
         enableAutoZoom: enableAutoZoom ?? this.enableAutoZoom,
         preventDuplicates: preventDuplicates ?? this.preventDuplicates,

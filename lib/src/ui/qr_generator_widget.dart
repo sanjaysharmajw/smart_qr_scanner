@@ -1,17 +1,25 @@
+import 'dart:io';
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
-import 'package:qr_flutter/qr_flutter.dart';
+import 'package:gal/gal.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:qr/qr.dart';
+import 'package:share_plus/share_plus.dart';
 
 /// Barcode type for QR generation.
 enum QrInputType { text, url, wifi, email, phone, contact }
 
 /// A full-featured QR code generator widget.
 /// Supports text, URL, WiFi, email, phone, and contact card input types.
+/// Renders QR codes using a custom [CustomPainter] — no qr_flutter dependency.
 class QrGeneratorWidget extends StatefulWidget {
   /// Called when a QR is successfully generated. Receives the raw data string.
   final ValueChanged<String>? onGenerated;
 
-  /// Accent color for buttons and active state.
+  /// Accent color for buttons, active state, and QR eye modules.
   final Color accentColor;
 
   const QrGeneratorWidget({
@@ -29,19 +37,16 @@ class _QrGeneratorWidgetState extends State<QrGeneratorWidget>
   QrInputType _type = QrInputType.url;
   String _qrData = '';
 
-  // Text controllers per type
-  final _textCtrl    = TextEditingController();
-  final _urlCtrl     = TextEditingController();
-  final _emailCtrl   = TextEditingController();
-  final _phoneCtrl   = TextEditingController();
-  // WiFi fields
-  final _ssidCtrl    = TextEditingController();
-  final _passCtrl    = TextEditingController();
-  String _wifiSec    = 'WPA';
-  // Contact fields
-  final _nameCtrl    = TextEditingController();
+  final _textCtrl         = TextEditingController();
+  final _urlCtrl          = TextEditingController();
+  final _emailCtrl        = TextEditingController();
+  final _phoneCtrl        = TextEditingController();
+  final _ssidCtrl         = TextEditingController();
+  final _passCtrl         = TextEditingController();
+  final _nameCtrl         = TextEditingController();
   final _contactPhoneCtrl = TextEditingController();
   final _contactEmailCtrl = TextEditingController();
+  String _wifiSec = 'WPA';
 
   late AnimationController _qrFadeCtrl;
   late Animation<double> _qrFade;
@@ -51,7 +56,7 @@ class _QrGeneratorWidgetState extends State<QrGeneratorWidget>
     super.initState();
     _qrFadeCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 350),
+      duration: const Duration(milliseconds: 380),
     );
     _qrFade = CurvedAnimation(parent: _qrFadeCtrl, curve: Curves.easeOut);
   }
@@ -59,9 +64,11 @@ class _QrGeneratorWidgetState extends State<QrGeneratorWidget>
   @override
   void dispose() {
     _qrFadeCtrl.dispose();
-    _textCtrl.dispose(); _urlCtrl.dispose(); _emailCtrl.dispose();
-    _phoneCtrl.dispose(); _ssidCtrl.dispose(); _passCtrl.dispose();
-    _nameCtrl.dispose(); _contactPhoneCtrl.dispose(); _contactEmailCtrl.dispose();
+    _textCtrl.dispose();        _urlCtrl.dispose();
+    _emailCtrl.dispose();       _phoneCtrl.dispose();
+    _ssidCtrl.dispose();        _passCtrl.dispose();
+    _nameCtrl.dispose();        _contactPhoneCtrl.dispose();
+    _contactEmailCtrl.dispose();
     super.dispose();
   }
 
@@ -123,10 +130,7 @@ class _QrGeneratorWidgetState extends State<QrGeneratorWidget>
           const SizedBox(height: 28),
           FadeTransition(
             opacity: _qrFade,
-            child: _QrDisplay(
-              data: _qrData,
-              accent: widget.accentColor,
-            ),
+            child: _QrDisplay(data: _qrData, accent: widget.accentColor),
           ),
         ],
       ],
@@ -136,18 +140,140 @@ class _QrGeneratorWidgetState extends State<QrGeneratorWidget>
   Widget _buildInputs() {
     switch (_type) {
       case QrInputType.text:
-        return _Field(ctrl: _textCtrl, label: 'Text', hint: 'Enter any text…', icon: Icons.text_fields_rounded, maxLines: 3);
+        return _Field(ctrl: _textCtrl,  label: 'Text',           hint: 'Enter any text…',      icon: Icons.text_fields_rounded,     maxLines: 3);
       case QrInputType.url:
-        return _Field(ctrl: _urlCtrl, label: 'URL', hint: 'example.com', icon: Icons.link_rounded, keyboardType: TextInputType.url);
+        return _Field(ctrl: _urlCtrl,   label: 'URL',            hint: 'example.com',           icon: Icons.link_rounded,            keyboardType: TextInputType.url);
       case QrInputType.email:
-        return _Field(ctrl: _emailCtrl, label: 'Email Address', hint: 'user@example.com', icon: Icons.email_outlined, keyboardType: TextInputType.emailAddress);
+        return _Field(ctrl: _emailCtrl, label: 'Email Address',  hint: 'user@example.com',      icon: Icons.email_outlined,          keyboardType: TextInputType.emailAddress);
       case QrInputType.phone:
-        return _Field(ctrl: _phoneCtrl, label: 'Phone Number', hint: '+91 98765 43210', icon: Icons.phone_outlined, keyboardType: TextInputType.phone);
+        return _Field(ctrl: _phoneCtrl, label: 'Phone Number',   hint: '+91 98765 43210',       icon: Icons.phone_outlined,          keyboardType: TextInputType.phone);
       case QrInputType.wifi:
         return _WifiFields(ssidCtrl: _ssidCtrl, passCtrl: _passCtrl, security: _wifiSec, onSecurityChanged: (s) => setState(() => _wifiSec = s));
       case QrInputType.contact:
         return _ContactFields(nameCtrl: _nameCtrl, phoneCtrl: _contactPhoneCtrl, emailCtrl: _contactEmailCtrl);
     }
+  }
+}
+
+// ── Custom QR painter (no qr_flutter) ────────────────────────────────────────
+
+/// Builds a [QrImage] from [data] using auto version selection.
+/// Returns null if the data cannot be encoded.
+QrImage? buildQrImage(String data) {
+  try {
+    final qrCode = QrCode.fromData(
+      data: data,
+      errorCorrectLevel: QrErrorCorrectLevel.M,
+    );
+    return QrImage(qrCode);
+  } catch (_) {
+    return null;
+  }
+}
+
+/// Renders a [QrImage] matrix onto a [Canvas].
+///
+/// - [eyeColor] colors the three finder-pattern squares (top-left, top-right,
+///   bottom-left) — gives the "eye" accent effect.
+/// - [dataColor] colors every other dark module.
+class QrPainter extends CustomPainter {
+  final QrImage qrImage;
+  final Color eyeColor;
+  final Color dataColor;
+  final Color background;
+
+  const QrPainter({
+    required this.qrImage,
+    this.eyeColor   = Colors.black,
+    this.dataColor  = Colors.black,
+    this.background = Colors.white,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final n = qrImage.moduleCount;
+    // QR spec requires a 4-module quiet zone on every side.
+    const quietZone = 4;
+    final total = n + 2 * quietZone;
+    final m = size.width / total; // pixel size per module
+    final offset = quietZone * m; // quiet-zone offset in pixels
+
+    canvas.drawRect(Offset.zero & size, Paint()..color = background);
+
+    final eyePaint  = Paint()..color = eyeColor;
+    final dataPaint = Paint()..color = dataColor;
+
+    for (var r = 0; r < n; r++) {
+      for (var c = 0; c < n; c++) {
+        if (!qrImage.isDark(r, c)) continue;
+        canvas.drawRect(
+          Rect.fromLTWH(offset + c * m, offset + r * m, m, m),
+          _isFinderRegion(r, c, n) ? eyePaint : dataPaint,
+        );
+      }
+    }
+  }
+
+  /// The three 7×7 finder patterns sit at the three corners.
+  /// Their quiet zones (row/col 7) are already light modules,
+  /// so colouring rows/cols 0-6 is sufficient.
+  bool _isFinderRegion(int r, int c, int n) {
+    if (r <= 6 && c <= 6)     return true; // top-left
+    if (r <= 6 && c >= n - 7) return true; // top-right
+    if (r >= n - 7 && c <= 6) return true; // bottom-left
+    return false;
+  }
+
+  @override
+  bool shouldRepaint(QrPainter old) =>
+      old.qrImage   != qrImage   ||
+      old.eyeColor  != eyeColor  ||
+      old.dataColor != dataColor;
+}
+
+/// A widget that renders a QR code for [data] using [QrPainter].
+/// Shows an error placeholder if the data cannot be encoded.
+class QrView extends StatelessWidget {
+  final String data;
+  final double size;
+  final Color eyeColor;
+  final Color dataColor;
+  final Color background;
+
+  const QrView({
+    super.key,
+    required this.data,
+    this.size       = 220,
+    this.eyeColor   = Colors.black,
+    this.dataColor  = Colors.black,
+    this.background = Colors.white,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final qrImage = buildQrImage(data);
+    if (qrImage == null) {
+      return SizedBox(
+        width: size,
+        height: size,
+        child: const Center(
+          child: Text(
+            'Data too large\nfor a QR code',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.red, fontSize: 13),
+          ),
+        ),
+      );
+    }
+    return CustomPaint(
+      size: Size(size, size),
+      painter: QrPainter(
+        qrImage:    qrImage,
+        eyeColor:   eyeColor,
+        dataColor:  dataColor,
+        background: background,
+      ),
+    );
   }
 }
 
@@ -157,7 +283,6 @@ class _TypeSelector extends StatelessWidget {
   final QrInputType selected;
   final Color accent;
   final ValueChanged<QrInputType> onChanged;
-
   const _TypeSelector({required this.selected, required this.accent, required this.onChanged});
 
   static const _types = [
@@ -250,7 +375,6 @@ class _WifiFields extends StatelessWidget {
   final TextEditingController ssidCtrl, passCtrl;
   final String security;
   final ValueChanged<String> onSecurityChanged;
-
   const _WifiFields({required this.ssidCtrl, required this.passCtrl, required this.security, required this.onSecurityChanged});
 
   @override
@@ -294,11 +418,11 @@ class _ContactFields extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Column(
     children: [
-      _Field(ctrl: nameCtrl, label: 'Full Name', hint: 'John Doe', icon: Icons.person_outline_rounded),
+      _Field(ctrl: nameCtrl,  label: 'Full Name',          hint: 'John Doe',         icon: Icons.person_outline_rounded),
       const SizedBox(height: 12),
-      _Field(ctrl: phoneCtrl, label: 'Phone (optional)', hint: '+91 98765 43210', icon: Icons.phone_outlined, keyboardType: TextInputType.phone),
+      _Field(ctrl: phoneCtrl, label: 'Phone (optional)',   hint: '+91 98765 43210',  icon: Icons.phone_outlined,         keyboardType: TextInputType.phone),
       const SizedBox(height: 12),
-      _Field(ctrl: emailCtrl, label: 'Email (optional)', hint: 'john@example.com', icon: Icons.email_outlined, keyboardType: TextInputType.emailAddress),
+      _Field(ctrl: emailCtrl, label: 'Email (optional)',   hint: 'john@example.com', icon: Icons.email_outlined,         keyboardType: TextInputType.emailAddress),
     ],
   );
 }
@@ -335,10 +459,108 @@ class _GenerateButton extends StatelessWidget {
 
 // ── QR display card ───────────────────────────────────────────────────────────
 
-class _QrDisplay extends StatelessWidget {
+class _QrDisplay extends StatefulWidget {
   final String data;
   final Color accent;
   const _QrDisplay({required this.data, required this.accent});
+
+  @override
+  State<_QrDisplay> createState() => _QrDisplayState();
+}
+
+class _QrDisplayState extends State<_QrDisplay> {
+  final _qrKey = GlobalKey();
+  bool _saving = false;
+
+  /// Renders the QR widget to a PNG [Uint8List] at 3× pixel ratio.
+  Future<Uint8List?> _captureQr() async {
+    try {
+      final boundary =
+          _qrKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
+      final image = await boundary.toImage(pixelRatio: 3.0);
+      final byteData =
+          await image.toByteData(format: ui.ImageByteFormat.png);
+      return byteData?.buffer.asUint8List();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Writes [bytes] to a temp file and returns the [File].
+  Future<File> _writeTempFile(Uint8List bytes) async {
+    final dir = await getTemporaryDirectory();
+    final file = File(
+        '${dir.path}/qr_${DateTime.now().millisecondsSinceEpoch}.png');
+    await file.writeAsBytes(bytes);
+    return file;
+  }
+
+  String _formatDateTime(DateTime dt) {
+    final d  = dt.day.toString().padLeft(2, '0');
+    final mo = dt.month.toString().padLeft(2, '0');
+    final h  = dt.hour.toString().padLeft(2, '0');
+    final mi = dt.minute.toString().padLeft(2, '0');
+    return '$d/$mo/${dt.year}  $h:$mi';
+  }
+
+  Future<void> _share() async {
+    final bytes = await _captureQr();
+    if (bytes == null) return;
+    final file = await _writeTempFile(bytes);
+    final dateStr = _formatDateTime(DateTime.now());
+    await Share.shareXFiles(
+      [XFile(file.path, mimeType: 'image/png', name: 'qr_code.png')],
+      subject: 'QR Code — $dateStr',
+      text: 'Generated on $dateStr\n${widget.data}',
+    );
+  }
+
+  Future<void> _download() async {
+    if (_saving) return;
+    setState(() => _saving = true);
+
+    try {
+      final bytes = await _captureQr();
+      if (bytes == null || !mounted) return;
+
+      // Request gallery permission if not already granted.
+      if (!await Gal.hasAccess()) {
+        final granted = await Gal.requestAccess();
+        if (!granted || !mounted) return;
+      }
+
+      final ts = DateTime.now().millisecondsSinceEpoch;
+      await Gal.putImageBytes(bytes, name: 'qr_$ts.png');
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Row(children: [
+            Icon(Icons.check_circle_rounded,
+                color: Color(0xFF00E676), size: 18),
+            SizedBox(width: 10),
+            Text('Saved to Gallery'),
+          ]),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12)),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not save: $e'),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -348,35 +570,46 @@ class _QrDisplay extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
-        boxShadow: [BoxShadow(color: Colors.black.withAlpha(18), blurRadius: 24, offset: const Offset(0, 8))],
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withAlpha(18),
+              blurRadius: 24,
+              offset: const Offset(0, 8))
+        ],
         border: Border.all(color: Colors.black.withAlpha(8)),
       ),
       child: Column(
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: QrImageView(
-              data: data,
-              size: 220,
-              backgroundColor: Colors.white,
-              eyeStyle: QrEyeStyle(eyeShape: QrEyeShape.square, color: accent),
-              dataModuleStyle: const QrDataModuleStyle(dataModuleShape: QrDataModuleShape.square, color: Colors.black87),
+          // QR code wrapped in RepaintBoundary for image capture
+          RepaintBoundary(
+            key: _qrKey,
+            child: QrView(
+              data: widget.data,
+              eyeColor: widget.accent,
             ),
           ),
           const SizedBox(height: 20),
+          // Data preview
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
               color: const Color(0xFFF5F5F5),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Text(
-              data.length > 60 ? '${data.substring(0, 60)}…' : data,
-              style: const TextStyle(fontSize: 12, color: Colors.black54, fontFamily: 'monospace'),
+              widget.data.length > 60
+                  ? '${widget.data.substring(0, 60)}…'
+                  : widget.data,
+              style: const TextStyle(
+                  fontSize: 12,
+                  color: Colors.black54,
+                  fontFamily: 'monospace'),
               textAlign: TextAlign.center,
             ),
           ),
           const SizedBox(height: 16),
+          // Copy + Download row
           Row(
             children: [
               Expanded(
@@ -384,12 +617,14 @@ class _QrDisplay extends StatelessWidget {
                   icon: Icons.copy_rounded,
                   label: 'Copy',
                   onTap: () {
-                    Clipboard.setData(ClipboardData(text: data));
+                    Clipboard.setData(
+                        ClipboardData(text: widget.data));
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: const Text('Copied to clipboard'),
                         behavior: SnackBarBehavior.floating,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
                         duration: const Duration(seconds: 2),
                       ),
                     );
@@ -399,27 +634,23 @@ class _QrDisplay extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: _ActionBtn(
-                  icon: Icons.share_rounded,
-                  label: 'Share',
-                  accent: accent,
-                  onTap: () async {
-                    try {
-                      // ignore: depend_on_referenced_packages
-                      await Future.value(data); // placeholder — share_plus called in screen
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: const Text('Use Share button on the screen'),
-                            behavior: SnackBarBehavior.floating,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          ),
-                        );
-                      }
-                    } catch (_) {}
-                  },
+                  icon: _saving
+                      ? Icons.hourglass_top_rounded
+                      : Icons.download_rounded,
+                  label: _saving ? 'Saving…' : 'Download',
+                  onTap: _download,
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 12),
+          // Full-width Share as image button
+          _ActionBtn(
+            icon: Icons.share_rounded,
+            label: 'Share QR Image',
+            accent: widget.accent,
+            onTap: _share,
+            fullWidth: true,
           ),
         ],
       ),
@@ -432,8 +663,14 @@ class _ActionBtn extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
   final Color? accent;
-
-  const _ActionBtn({required this.icon, required this.label, required this.onTap, this.accent});
+  final bool fullWidth;
+  const _ActionBtn({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.accent,
+    this.fullWidth = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -442,6 +679,7 @@ class _ActionBtn extends StatelessWidget {
       onTap: onTap,
       child: Container(
         height: 46,
+        width: fullWidth ? double.infinity : null,
         decoration: BoxDecoration(
           color: filled ? accent : Colors.white,
           borderRadius: BorderRadius.circular(12),
