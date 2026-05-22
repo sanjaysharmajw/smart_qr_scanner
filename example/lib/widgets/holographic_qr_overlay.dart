@@ -26,6 +26,9 @@ class _HolographicQrOverlayState extends State<HolographicQrOverlay>
   late final Animation<double>   _opacity;
   late final Animation<double>   _entranceTiltX; // neeche se aakar seedha hona
 
+  // ── Entrance slide-up ─────────────────────────────────────────────────────
+  late final Animation<double>   _slideY;
+
   // ── Continuous float (Y translation) ──────────────────────────────────────
   late final AnimationController _floatCtrl;
   late final Animation<double>   _floatY;
@@ -45,19 +48,48 @@ class _HolographicQrOverlayState extends State<HolographicQrOverlay>
   void initState() {
     super.initState();
 
-    // Entrance
+    // Entrance — small → big succession with overshoot settle
     _entranceCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 600),
+      duration: const Duration(milliseconds: 1000),
     );
-    _scale = Tween(begin: 0.65, end: 1.0)
-        .chain(CurveTween(curve: Curves.easeOutBack))
+
+    // Scale: tiny → overshoot → settle  (growth clearly visible)
+    _scale = TweenSequence<double>([
+      TweenSequenceItem(
+        tween: Tween(begin: 0.05, end: 1.18)
+            .chain(CurveTween(curve: Curves.easeOutCubic)),
+        weight: 60,
+      ),
+      TweenSequenceItem(
+        tween: Tween(begin: 1.18, end: 0.94)
+            .chain(CurveTween(curve: Curves.easeInOut)),
+        weight: 20,
+      ),
+      TweenSequenceItem(
+        tween: Tween(begin: 0.94, end: 1.0)
+            .chain(CurveTween(curve: Curves.easeOut)),
+        weight: 20,
+      ),
+    ]).animate(_entranceCtrl);
+
+    // Opacity: fade in quickly so scale growth is fully visible
+    _opacity = TweenSequence<double>([
+      TweenSequenceItem(
+        tween: Tween(begin: 0.0, end: 1.0)
+            .chain(CurveTween(curve: Curves.easeOut)),
+        weight: 25,
+      ),
+      TweenSequenceItem(tween: ConstantTween(1.0), weight: 75),
+    ]).animate(_entranceCtrl);
+
+    // Tilt: starts tilted forward → settles
+    _entranceTiltX = Tween(begin: 0.55, end: 0.0)
+        .chain(CurveTween(curve: Curves.easeOutCubic))
         .animate(_entranceCtrl);
-    _opacity = Tween(begin: 0.0, end: 1.0)
-        .chain(CurveTween(curve: Curves.easeOut))
-        .animate(_entranceCtrl);
-    // Starts tilted forward (as if rising from below) → snaps to gentle rest tilt
-    _entranceTiltX = Tween(begin: 0.45, end: 0.0)
+
+    // Slide up from below
+    _slideY = Tween(begin: 40.0, end: 0.0)
         .chain(CurveTween(curve: Curves.easeOutCubic))
         .animate(_entranceCtrl);
 
@@ -128,26 +160,27 @@ class _HolographicQrOverlayState extends State<HolographicQrOverlay>
       onTap: _dismiss,
       behavior: HitTestBehavior.translucent,
       child: AnimatedBuilder(
-        animation: Listenable.merge(
-            [_entranceCtrl, _floatCtrl, _tiltCtrl, _sweepCtrl]),
-        builder: (context, _) {
+        animation: Listenable.merge([_entranceCtrl, _floatCtrl, _tiltCtrl]),
+        builder: (context, child) {
           return Opacity(
             opacity: _opacity.value,
             child: Center(
               child: Transform.translate(
-                offset: Offset(0, _floatY.value),
+                offset: Offset(0, _floatY.value + _slideY.value),
                 child: Transform(
                   alignment: Alignment.center,
                   transform: _tiltMatrix(),
                   child: Transform.scale(
                     scale: _scale.value,
-                    child: _buildCard(),
+                    child: child,
                   ),
                 ),
               ),
             ),
           );
         },
+        // card passed as static child — not rebuilt by outer animation ticks
+        child: RepaintBoundary(child: _buildCard()),
       ),
     );
   }
@@ -162,7 +195,7 @@ class _HolographicQrOverlayState extends State<HolographicQrOverlay>
         height: qrSize,
         child: Stack(
           children: [
-            // QR code with logo centre
+            // QR code — static, never rebuilds
             PrettyQrView.data(
               data: widget.rawValue,
               decoration: const PrettyQrDecoration(
@@ -174,23 +207,12 @@ class _HolographicQrOverlayState extends State<HolographicQrOverlay>
               ),
             ),
 
-            // Cyan sweep scan line
-            Positioned(
-              left: 0,
-              right: 0,
-              top: _sweep.value * qrSize - 1,
-              height: 2,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Colors.transparent,
-                      const Color(0xFF00E5FF).withAlpha(180),
-                      const Color(0xFF00E5FF),
-                      const Color(0xFF00E5FF).withAlpha(180),
-                      Colors.transparent,
-                    ],
-                  ),
+            // Sweep — isolated builder, only this Positioned repaints
+            Positioned.fill(
+              child: AnimatedBuilder(
+                animation: _sweepCtrl,
+                builder: (_, __) => CustomPaint(
+                  painter: _SweepPainter(progress: _sweep.value, size: qrSize),
                 ),
               ),
             ),
@@ -199,4 +221,31 @@ class _HolographicQrOverlayState extends State<HolographicQrOverlay>
       ),
     );
   }
+}
+
+// ── Sweep painter — repaints only the scan line ───────────────────────────────
+
+class _SweepPainter extends CustomPainter {
+  final double progress;
+  final double size;
+  const _SweepPainter({required this.progress, required this.size});
+
+  @override
+  void paint(Canvas canvas, Size s) {
+    final y = progress * size - 1;
+    final paint = Paint()
+      ..shader = const LinearGradient(
+        colors: [
+          Colors.transparent,
+          Color(0xB400E5FF),
+          Color(0xFF00E5FF),
+          Color(0xB400E5FF),
+          Colors.transparent,
+        ],
+      ).createShader(Rect.fromLTWH(0, y, s.width, 2));
+    canvas.drawRect(Rect.fromLTWH(0, y, s.width, 2), paint);
+  }
+
+  @override
+  bool shouldRepaint(_SweepPainter old) => old.progress != progress;
 }

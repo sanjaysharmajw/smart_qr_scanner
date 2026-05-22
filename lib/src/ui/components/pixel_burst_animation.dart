@@ -57,7 +57,7 @@ class _PixelBurstAnimationState extends State<PixelBurstAnimation>
     super.initState();
 
     _blocks = _Block.generate(
-      520,
+      260,
       Random(),
       zoneW: widget.spawnZoneWidth,
       zoneH: widget.spawnZoneHeight,
@@ -243,24 +243,6 @@ class _Cmd {
   const _Cmd(this.rect, this.alpha);
 }
 
-/// Renders [cmds] into an offscreen layer blurred by [sigma], then composites
-/// onto [canvas].  Uses TileMode.decal so blur doesn't bleed outside the rect.
-void _drawBlurred(
-  Canvas canvas, Size size, List<_Cmd> cmds, Color color, double sigma,
-) {
-  if (cmds.isEmpty) return;
-  canvas.saveLayer(
-    Rect.fromLTWH(0, 0, size.width, size.height),
-    Paint()
-      ..imageFilter = ui.ImageFilter.blur(
-          sigmaX: sigma, sigmaY: sigma, tileMode: TileMode.decal),
-  );
-  for (final c in cmds) {
-    canvas.drawRect(c.rect, Paint()..color = color.withAlpha(c.alpha));
-  }
-  canvas.restore();
-}
-
 // ── Painter ───────────────────────────────────────────────────────────────────
 
 class _BurstPainter extends CustomPainter {
@@ -269,7 +251,10 @@ class _BurstPainter extends CustomPainter {
   final Offset origin;
   final Color color;
 
-  const _BurstPainter({
+  // Reused across every paint() call — avoids per-frame GC pressure.
+  final Paint _p = Paint();
+
+  _BurstPainter({
     required this.blocks,
     required this.progress,
     required this.origin,
@@ -295,22 +280,17 @@ class _BurstPainter extends CustomPainter {
       );
     }
 
-    // ── Sort blocks into 4 depth buckets ────────────────────────────────────
-    //   far     (t < 0.24)       σ 3.5  — distant haze, atmospheric dimming
-    //   sharp   (0.24 – 0.65)    σ 0    — crisp focal plane
-    //   hclose  (0.65 – 0.80)    σ 7    — transitioning past the lens
-    //   close   (t > 0.80)       σ 16   — extreme bokeh, full depth rush
-    final far    = <_Cmd>[];
-    final sharp  = <_Cmd>[];
-    final hclose = <_Cmd>[];
-    final close  = <_Cmd>[];
+    // ── Collect blocks into buckets ──────────────────────────────────────────
+    // far + sharp + hclose drawn directly (no saveLayer).
+    // Only close gets 1 saveLayer for bokeh — keeps GPU load low.
+    final close = <_Cmd>[];
 
     for (final b in blocks) {
       final t = ((progress - b.delay) / (1.0 - b.delay)).clamp(0.0, 1.0);
       if (t <= 0) continue;
 
       final posEase = Curves.easeOutSine.transform(t);
-      final scaleT  = t * t * t * t; // easeInQuart
+      final scaleT  = t * t * t * t;
       final scale   = b.scaleStart + (b.scaleEnd - b.scaleStart) * scaleT;
 
       final pos = origin +
@@ -323,35 +303,34 @@ class _BurstPainter extends CustomPainter {
           : 1.0 - ((t - b.fadeStart) / (1.0 - b.fadeStart));
       if (opacity <= 0) continue;
 
-      // Atmospheric dimming: far blocks are slightly fainter (distance haze).
       final depthDim = t < 0.24 ? 0.45 + (t / 0.24) * 0.55 : 1.0;
       final alpha    = (opacity.clamp(0.0, 1.0) * depthDim * 255).round();
+      final rect     = Rect.fromCenter(
+          center: pos, width: b.w * scale, height: b.h * scale);
 
-      final cmd = _Cmd(
-        Rect.fromCenter(center: pos, width: b.w * scale, height: b.h * scale),
-        alpha,
-      );
-
-      if (t < 0.24) {
-        far.add(cmd);
-      } else if (t < 0.65) {
-        sharp.add(cmd);
-      } else if (t < 0.80) {
-        hclose.add(cmd);
+      if (t < 0.80) {
+        // far + sharp + hclose — draw directly, reuse _p
+        _p.color = color.withAlpha(alpha);
+        canvas.drawRect(rect, _p);
       } else {
-        close.add(cmd);
+        close.add(_Cmd(rect, alpha));
       }
     }
 
-    // ── Render depth layers back → front ────────────────────────────────────
-    _drawBlurred(canvas, size, far,    color, 3.5);   // distance haze
-
-    for (final c in sharp) {                           // razor-sharp focal plane
-      canvas.drawRect(c.rect, Paint()..color = color.withAlpha(c.alpha));
+    // ── Single saveLayer for close (bokeh) ───────────────────────────────────
+    if (close.isNotEmpty) {
+      canvas.saveLayer(
+        Rect.fromLTWH(0, 0, size.width, size.height),
+        Paint()
+          ..imageFilter = ui.ImageFilter.blur(
+              sigmaX: 8, sigmaY: 8, tileMode: TileMode.decal),
+      );
+      for (final c in close) {
+        _p.color = color.withAlpha(c.alpha);
+        canvas.drawRect(c.rect, _p);
+      }
+      canvas.restore();
     }
-
-    _drawBlurred(canvas, size, hclose, color, 7.0);   // soft transition blur
-    _drawBlurred(canvas, size, close,  color, 16.0);  // extreme bokeh rush
   }
 
   @override

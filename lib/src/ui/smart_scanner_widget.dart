@@ -93,6 +93,7 @@ class SmartScannerWidgetState extends State<SmartScannerWidget>
   late Animation<double> _statusAnim;
 
   bool _showSuccess = false;
+  bool _showBurst   = false;
   bool _detecting = false;
   double _baseZoom = 1.0;
   SmartScanResult? _lastScanResult;
@@ -124,13 +125,16 @@ class SmartScannerWidgetState extends State<SmartScannerWidget>
     _statusAnim = CurvedAnimation(parent: _statusCtrl, curve: Curves.easeOut);
 
     _scanSub = widget.controller.scanEvents.listen((result) {
-      if (mounted) {
-        widget.controller.pause();
-        setState(() {
-          _showSuccess = true;
-          _lastScanResult = result;
-        });
-      }
+      if (!mounted) return;
+      widget.controller.pause();
+      setState(() {
+        _showSuccess = true;
+        _lastScanResult = result;
+      });
+      // Delay burst so hologram fully materialises first
+      Future.delayed(const Duration(milliseconds: 600), () {
+        if (mounted) setState(() => _showBurst = true);
+      });
     });
 
     _rawSub = widget.controller.rawScanEvents.listen((results) {
@@ -313,23 +317,29 @@ class SmartScannerWidgetState extends State<SmartScannerWidget>
         if (_showSuccess && widget.successOverlayBuilder != null &&
             _lastScanResult != null)
           Positioned.fill(
-            child: widget.successOverlayBuilder!(_lastScanResult!),
+            child: RepaintBoundary(
+              child: widget.successOverlayBuilder!(_lastScanResult!),
+            ),
           ),
 
         // 7c. Pixel burst (ON TOP of scrim + overlay)
-        if (_showSuccess)
+        if (_showBurst)
           Positioned.fill(
-            child: widget.successStyle == ScanSuccessStyle.pixelBurst
+            child: RepaintBoundary(
+              child: widget.successStyle == ScanSuccessStyle.pixelBurst
                 ? PixelBurstAnimation(
-                    origin: Offset(size.width / 2, size.height * 0.42),
-                    spawnZoneWidth:  size.width  * ctrl.config.scanAreaWidthFactor,
-                    spawnZoneHeight: size.height * ctrl.config.scanAreaHeightFactor,
+                    origin: Offset(size.width / 2, size.height / 2),
+                    spawnZoneWidth:  160,
+                    spawnZoneHeight: 160,
                     centerLogo: widget.successLogo,
                     logoSize: widget.successLogoSize,
                     onComplete: () {
                       if (!mounted) return;
                       widget.controller.resume();
-                      setState(() => _showSuccess = false);
+                      setState(() {
+                        _showSuccess = false;
+                        _showBurst   = false;
+                      });
                       final result = _lastScanResult;
                       if (result != null) {
                         widget.onScanAnimationComplete?.call(result);
@@ -342,6 +352,7 @@ class SmartScannerWidgetState extends State<SmartScannerWidget>
                       if (mounted) setState(() => _showSuccess = false);
                     },
                   ),
+            ),
           ),
 
         // 8. Menu button — placed in a kToolbarHeight row starting at the
