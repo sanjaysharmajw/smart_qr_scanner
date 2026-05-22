@@ -51,6 +51,11 @@ class SmartScannerWidget extends StatefulWidget {
   /// Size of the [successLogo] container. Defaults to 100.
   final double successLogoSize;
 
+  /// Optional widget rendered BEHIND the success animation when a scan is
+  /// detected.  Receives the scan result and is removed at the same time as
+  /// the success animation.  Use this for holographic overlays, etc.
+  final Widget Function(SmartScanResult)? successOverlayBuilder;
+
   const SmartScannerWidget({
     super.key,
     required this.controller,
@@ -69,6 +74,7 @@ class SmartScannerWidget extends StatefulWidget {
     this.onScanAnimationComplete,
     this.successLogo,
     this.successLogoSize = 100,
+    this.successOverlayBuilder,
   });
 
   @override
@@ -119,6 +125,7 @@ class SmartScannerWidgetState extends State<SmartScannerWidget>
 
     _scanSub = widget.controller.scanEvents.listen((result) {
       if (mounted) {
+        widget.controller.pause();
         setState(() {
           _showSuccess = true;
           _lastScanResult = result;
@@ -209,44 +216,51 @@ class SmartScannerWidgetState extends State<SmartScannerWidget>
         ),
 
         // 2. Edge vignette + corner brackets
-        Positioned.fill(
-          child: AnimatedBuilder(
-            animation: _scanLineAnim,
-            builder: (_, __) => CustomPaint(
-              painter: ScannerOverlayPainter(
-                scanRect: scanRect,
-                theme: widget.theme,
-                scanLineProgress: _scanLineAnim.value,
-                detecting: _detecting,
-              ),
-            ),
-          ),
-        ),
-
-        // 3. Status label above scan area
-        Positioned(
-          left: 0,
-          right: 0,
-          top: scanRect.top - 56,
-          child: FadeTransition(
-            opacity: _statusAnim,
-            child: SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(0, 0.4),
-                end: Offset.zero,
-              ).animate(_statusAnim),
-              child: Center(
-                child: _StatusLabel(
-                  detecting: _detecting,
+        // Hidden as soon as a code is detected (pixelBurst) or on success
+        if (!_showSuccess &&
+            !(widget.successStyle == ScanSuccessStyle.pixelBurst && _detecting))
+          Positioned.fill(
+            child: AnimatedBuilder(
+              animation: _scanLineAnim,
+              builder: (_, __) => CustomPaint(
+                painter: ScannerOverlayPainter(
+                  scanRect: scanRect,
                   theme: widget.theme,
+                  scanLineProgress: _scanLineAnim.value,
+                  detecting: _detecting,
                 ),
               ),
             ),
           ),
-        ),
+
+        // 3. Status label above scan area
+        if (!_showSuccess &&
+            !(widget.successStyle == ScanSuccessStyle.pixelBurst && _detecting))
+          Positioned(
+            left: 0,
+            right: 0,
+            top: scanRect.top - 56,
+            child: FadeTransition(
+              opacity: _statusAnim,
+              child: SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(0, 0.4),
+                  end: Offset.zero,
+                ).animate(_statusAnim),
+                child: Center(
+                  child: _StatusLabel(
+                    detecting: _detecting,
+                    theme: widget.theme,
+                  ),
+                ),
+              ),
+            ),
+          ),
 
         // 4. Hint text below scan area
-        if (widget.showHint)
+        if (widget.showHint &&
+            !_showSuccess &&
+            !(widget.successStyle == ScanSuccessStyle.pixelBurst && _detecting))
           Positioned(
             left: 24,
             right: 24,
@@ -285,7 +299,24 @@ class SmartScannerWidgetState extends State<SmartScannerWidget>
             ),
           ),
 
-        // 7. Success animation
+        // 7a. Dark scrim — fades in on success so hologram is clearly visible
+        if (_showSuccess)
+          Positioned.fill(
+            child: AnimatedOpacity(
+              opacity: _showSuccess ? 1.0 : 0.0,
+              duration: const Duration(milliseconds: 300),
+              child: ColoredBox(color: Colors.black.withAlpha(180)),
+            ),
+          ),
+
+        // 7b. Success overlay — rendered BEHIND the pixel burst
+        if (_showSuccess && widget.successOverlayBuilder != null &&
+            _lastScanResult != null)
+          Positioned.fill(
+            child: widget.successOverlayBuilder!(_lastScanResult!),
+          ),
+
+        // 7c. Pixel burst (ON TOP of scrim + overlay)
         if (_showSuccess)
           Positioned.fill(
             child: widget.successStyle == ScanSuccessStyle.pixelBurst
@@ -297,6 +328,7 @@ class SmartScannerWidgetState extends State<SmartScannerWidget>
                     logoSize: widget.successLogoSize,
                     onComplete: () {
                       if (!mounted) return;
+                      widget.controller.resume();
                       setState(() => _showSuccess = false);
                       final result = _lastScanResult;
                       if (result != null) {
