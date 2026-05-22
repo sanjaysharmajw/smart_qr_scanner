@@ -22,6 +22,7 @@ class ScannerOverlayPainter extends CustomPainter {
     _drawOuterMask(canvas, size);
     if (detecting) _drawDetectionGlow(canvas);
     _drawCorners(canvas);
+    _drawScanLine(canvas);
   }
 
   // Draws a dark semi-transparent overlay everywhere OUTSIDE the scan window.
@@ -98,6 +99,35 @@ class ScannerOverlayPainter extends CustomPainter {
         ..strokeWidth = 2.5
         ..style = PaintingStyle.stroke
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10),
+    );
+  }
+
+  void _drawScanLine(Canvas canvas) {
+    final scanY = scanRect.top + scanLineProgress * scanRect.height;
+
+    // Soft glow behind the line
+    canvas.drawRect(
+      Rect.fromLTWH(scanRect.left, scanY - 6, scanRect.width, 12),
+      Paint()
+        ..color = theme.scanLineColor.withAlpha(30)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
+    );
+
+    // Gradient scan line
+    canvas.drawRect(
+      Rect.fromLTWH(scanRect.left, scanY - theme.scanLineHeight / 2,
+          scanRect.width, theme.scanLineHeight),
+      Paint()
+        ..shader = ui.Gradient.linear(
+          Offset(scanRect.left, scanY),
+          Offset(scanRect.right, scanY),
+          [
+            const Color(0x00FFFFFF),
+            theme.scanLineColor.withAlpha(220),
+            const Color(0x00FFFFFF),
+          ],
+          [0.0, 0.5, 1.0],
+        ),
     );
   }
 

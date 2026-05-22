@@ -43,19 +43,29 @@ class StorageService {
 
   // ── Favorites ──────────────────────────────────────────────────────────────
 
+  // Serialises concurrent toggleFavorite calls so rapid taps don't cause
+  // a read-modify-write race where one update overwrites another.
+  static Future<void>? _pendingToggle;
+
   static Future<Set<String>> loadFavorites() async {
     await init();
     return (_prefs!.getStringList(_favoritesKey) ?? []).toSet();
   }
 
   static Future<void> toggleFavorite(String rawValue) async {
-    final favs = await loadFavorites();
-    if (favs.contains(rawValue)) {
-      favs.remove(rawValue);
-    } else {
-      favs.add(rawValue);
-    }
-    await _prefs!.setStringList(_favoritesKey, favs.toList());
+    // Chain onto any in-flight toggle so each call sees the previous write.
+    final previous = _pendingToggle ?? Future.value();
+    _pendingToggle = previous.then((_) async {
+      await init();
+      final favs = (_prefs!.getStringList(_favoritesKey) ?? []).toSet();
+      if (favs.contains(rawValue)) {
+        favs.remove(rawValue);
+      } else {
+        favs.add(rawValue);
+      }
+      await _prefs!.setStringList(_favoritesKey, favs.toList());
+    });
+    await _pendingToggle;
   }
 
   static Future<bool> isFavorite(String rawValue) async {

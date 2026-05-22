@@ -247,10 +247,13 @@ class SmartScanResult {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is SmartScanResult && other.rawValue == rawValue;
+      other is SmartScanResult &&
+          other.rawValue == rawValue &&
+          other.timestamp == timestamp &&
+          other.resultType == resultType;
 
   @override
-  int get hashCode => rawValue.hashCode;
+  int get hashCode => Object.hash(rawValue, timestamp, resultType);
 
   @override
   String toString() => 'SmartScanResult($formatName: $rawValue)';

@@ -120,11 +120,23 @@ class SmartQrScannerController extends ChangeNotifier {
 
     _engine = ScannerEngine(config);
 
+    // Guard: if dispose() was called while we were awaiting cameras/permissions,
+    // tear down the engine we just created and bail out.
+    if (_isDisposed) {
+      await _engine.dispose();
+      return;
+    }
+
     try {
       await _engine.init(cameras);
     } on ScannerException catch (e) {
       _isInitializing = false;
       _setError(e.message);
+      return;
+    }
+
+    if (_isDisposed) {
+      await _engine.dispose();
       return;
     }
 

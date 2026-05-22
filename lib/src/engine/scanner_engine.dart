@@ -88,6 +88,11 @@ class ScannerEngine {
     await _cameraController.startImageStream(_onFrame);
   }
 
+  // Incremented each time a new camera session starts (init / switchCamera).
+  // Each _processFrame captures the session token at call-time and skips the
+  // whenComplete reset if the session has already moved on.
+  int _sessionToken = 0;
+
   void _onFrame(CameraImage image) {
     if (_isPaused || _isProcessing || _isDisposed) return;
 
@@ -100,7 +105,10 @@ class ScannerEngine {
     if (!_throttle.canProcess) return;
 
     _isProcessing = true;
-    _processFrame(image).whenComplete(() => _isProcessing = false);
+    final token = _sessionToken;
+    _processFrame(image).whenComplete(() {
+      if (_sessionToken == token) _isProcessing = false;
+    });
   }
 
   Future<void> _processFrame(CameraImage image) async {
@@ -223,6 +231,7 @@ class ScannerEngine {
     _isDisposed = false;
     _isPaused = false;
     _frameCount = 0;
+    _sessionToken++;
     await _initWithFacing(cameras, _currentFacing);
   }
 
