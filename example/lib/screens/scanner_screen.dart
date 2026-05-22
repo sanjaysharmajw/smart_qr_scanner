@@ -44,7 +44,7 @@ class _ScannerScreenState extends State<ScannerScreen> with SingleTickerProvider
     _fadeAnim = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOut);
     // Use pre-created controller if the caller already started initialize().
     _controller = widget.controller ?? SmartQrScannerController(config: widget.config);
-    _controller.onScan = _onScan;
+    _controller.onScan = (result) => widget.onResult?.call(result);
     _controller.onTimeout = _onTimeout;
     _controller.onError = _onError;
     if (widget.controller == null) {
@@ -52,8 +52,8 @@ class _ScannerScreenState extends State<ScannerScreen> with SingleTickerProvider
     }
   }
 
-  void _onScan(SmartScanResult result) {
-    widget.onResult?.call(result);
+  void _navigateToResult(SmartScanResult result) {
+    if (!mounted) return;
     Navigator.pushReplacement(
       context,
       PageRouteBuilder(
@@ -143,6 +143,14 @@ class _ScannerScreenState extends State<ScannerScreen> with SingleTickerProvider
           showHint: true,
           showMenu: false,
           onThemeChanged: (t) => setState(() => _theme = t),
+          onScanAnimationComplete: _navigateToResult,
+          successLogo: Image.asset(
+            'assets/logo.png',
+            width: 90,
+            height: 90,
+            fit: BoxFit.contain,
+          ),
+          successLogoSize: 100,
         ),
       ),
     );

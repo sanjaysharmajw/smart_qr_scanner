@@ -7,9 +7,19 @@ import '../controllers/scanner_controller.dart';
 import '../models/scan_result.dart';
 import '../models/scanner_theme.dart';
 import '../services/permission_service.dart';
+import 'components/pixel_burst_animation.dart';
 import 'components/scan_controls.dart';
 import 'components/scan_success_animation.dart';
 import 'painters/scanner_overlay_painter.dart';
+
+/// Which animation plays on a successful scan.
+enum ScanSuccessStyle {
+  /// Ripple rings + checkmark (default).
+  ripple,
+
+  /// Paytm-style white pixel blocks that burst outward from the scan area.
+  pixelBurst,
+}
 
 class SmartScannerWidget extends StatefulWidget {
   final SmartQrScannerController controller;
@@ -25,6 +35,22 @@ class SmartScannerWidget extends StatefulWidget {
   final Widget? errorWidget;
   final Widget? loadingWidget;
 
+  /// Animation style shown when a QR code is successfully scanned.
+  final ScanSuccessStyle successStyle;
+
+  /// Called AFTER the success animation fully completes, with the scan result.
+  /// Use this for navigation instead of [SmartQrScannerController.onScan] so
+  /// the animation is not cut short by the screen being disposed.
+  final void Function(SmartScanResult result)? onScanAnimationComplete;
+
+  /// Widget shown at the center of the [pixelBurst] animation — e.g. your
+  /// brand logo, an [Icon], or any custom widget. Pass null for no logo.
+  /// Can be changed at any time by rebuilding with a new value.
+  final Widget? successLogo;
+
+  /// Size of the [successLogo] container. Defaults to 100.
+  final double successLogoSize;
+
   const SmartScannerWidget({
     super.key,
     required this.controller,
@@ -39,6 +65,10 @@ class SmartScannerWidget extends StatefulWidget {
     this.onThemeChanged,
     this.errorWidget,
     this.loadingWidget,
+    this.successStyle = ScanSuccessStyle.pixelBurst,
+    this.onScanAnimationComplete,
+    this.successLogo,
+    this.successLogoSize = 100,
   });
 
   @override
@@ -59,6 +89,7 @@ class SmartScannerWidgetState extends State<SmartScannerWidget>
   bool _showSuccess = false;
   bool _detecting = false;
   double _baseZoom = 1.0;
+  SmartScanResult? _lastScanResult;
 
   StreamSubscription<SmartScanResult>? _scanSub;
   StreamSubscription<List<SmartScanResult>>? _rawSub;
@@ -86,8 +117,13 @@ class SmartScannerWidgetState extends State<SmartScannerWidget>
     );
     _statusAnim = CurvedAnimation(parent: _statusCtrl, curve: Curves.easeOut);
 
-    _scanSub = widget.controller.scanEvents.listen((_) {
-      if (mounted) setState(() => _showSuccess = true);
+    _scanSub = widget.controller.scanEvents.listen((result) {
+      if (mounted) {
+        setState(() {
+          _showSuccess = true;
+          _lastScanResult = result;
+        });
+      }
     });
 
     _rawSub = widget.controller.rawScanEvents.listen((results) {
@@ -202,7 +238,6 @@ class SmartScannerWidgetState extends State<SmartScannerWidget>
               child: Center(
                 child: _StatusLabel(
                   detecting: _detecting,
-                  paused: ctrl.isPaused,
                   theme: widget.theme,
                 ),
               ),
@@ -219,12 +254,10 @@ class SmartScannerWidgetState extends State<SmartScannerWidget>
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 300),
               child: Text(
-                ctrl.isPaused
-                    ? 'Scanning paused'
-                    : (_detecting
-                        ? 'Hold steady while verifying...'
-                        : widget.hintText),
-                key: ValueKey(ctrl.isPaused ? 'p' : _detecting ? 'd' : 'i'),
+                _detecting
+                    ? 'Hold steady while verifying...'
+                    : widget.hintText,
+                key: ValueKey(_detecting ? 'd' : 'i'),
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: Colors.white.withAlpha(180),
@@ -237,10 +270,7 @@ class SmartScannerWidgetState extends State<SmartScannerWidget>
             ),
           ),
 
-        // 5. Paused overlay
-        if (ctrl.isPaused) const Positioned.fill(child: _PausedOverlay()),
-
-        // 6. Controls
+        // 5. Controls
         if (widget.showControls)
           Positioned(
             left: 0,
@@ -258,12 +288,28 @@ class SmartScannerWidgetState extends State<SmartScannerWidget>
         // 7. Success animation
         if (_showSuccess)
           Positioned.fill(
-            child: ScanSuccessAnimation(
-              theme: widget.theme,
-              onComplete: () {
-                if (mounted) setState(() => _showSuccess = false);
-              },
-            ),
+            child: widget.successStyle == ScanSuccessStyle.pixelBurst
+                ? PixelBurstAnimation(
+                    origin: Offset(size.width / 2, size.height * 0.42),
+                    spawnZoneWidth:  size.width  * ctrl.config.scanAreaWidthFactor,
+                    spawnZoneHeight: size.height * ctrl.config.scanAreaHeightFactor,
+                    centerLogo: widget.successLogo,
+                    logoSize: widget.successLogoSize,
+                    onComplete: () {
+                      if (!mounted) return;
+                      setState(() => _showSuccess = false);
+                      final result = _lastScanResult;
+                      if (result != null) {
+                        widget.onScanAnimationComplete?.call(result);
+                      }
+                    },
+                  )
+                : ScanSuccessAnimation(
+                    theme: widget.theme,
+                    onComplete: () {
+                      if (mounted) setState(() => _showSuccess = false);
+                    },
+                  ),
           ),
 
         // 8. Menu button — placed in a kToolbarHeight row starting at the
@@ -375,19 +421,13 @@ class _CameraPreview extends StatelessWidget {
 
 class _StatusLabel extends StatelessWidget {
   final bool detecting;
-  final bool paused;
   final ScannerTheme theme;
-  const _StatusLabel(
-      {required this.detecting, required this.paused, required this.theme});
+  const _StatusLabel({required this.detecting, required this.theme});
 
   @override
   Widget build(BuildContext context) {
-    if (!detecting && !paused) return const SizedBox.shrink();
-    final color =
-        paused ? Colors.orange : theme.successColor;
-    final text = paused ? 'Scanning paused' : 'Code detected — verifying...';
-    final icon =
-        paused ? Icons.pause_circle_outline_rounded : Icons.qr_code_scanner_rounded;
+    if (!detecting) return const SizedBox.shrink();
+    final color = theme.successColor;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
@@ -400,10 +440,10 @@ class _StatusLabel extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: color, size: 15),
+          Icon(Icons.qr_code_scanner_rounded, color: color, size: 15),
           const SizedBox(width: 8),
           Text(
-            text,
+            'Code detected — verifying...',
             style: TextStyle(
               color: color,
               fontSize: 13,
@@ -412,47 +452,6 @@ class _StatusLabel extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-// ── Paused overlay ────────────────────────────────────────────────────────────
-
-class _PausedOverlay extends StatelessWidget {
-  const _PausedOverlay();
-
-  @override
-  Widget build(BuildContext context) {
-    return ColoredBox(
-      color: Colors.black.withAlpha(80),
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 68,
-              height: 68,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withAlpha(15),
-                border:
-                    Border.all(color: Colors.white.withAlpha(40)),
-              ),
-              child: const Icon(Icons.pause_rounded,
-                  color: Colors.white70, size: 34),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Scanning Paused',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 17,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

@@ -30,6 +30,7 @@ export 'src/services/permission_service.dart';
 export 'src/services/storage_service.dart';
 export 'src/ui/components/duplicate_toast.dart';
 export 'src/ui/components/favorite_button.dart';
+export 'src/ui/components/pixel_burst_animation.dart';
 export 'src/ui/components/scan_controls.dart';
 export 'src/ui/components/scan_hint_widget.dart';
 export 'src/ui/components/scan_success_animation.dart';
