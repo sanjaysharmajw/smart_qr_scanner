@@ -1,5 +1,4 @@
 import 'dart:math';
-import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 /// Pixel-burst with a genuine "rushing toward the viewer" feel.
@@ -234,14 +233,6 @@ class _Block {
   }
 }
 
-// ── Depth-of-field helper ─────────────────────────────────────────────────────
-
-/// One pre-computed draw call (rect + alpha).
-class _Cmd {
-  final Rect rect;
-  final int  alpha;
-  const _Cmd(this.rect, this.alpha);
-}
 
 // ── Painter ───────────────────────────────────────────────────────────────────
 
@@ -265,26 +256,21 @@ class _BurstPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     // ── Shockwave flash (first 35 %) ────────────────────────────────────────
     if (progress < 0.35) {
-      final fp     = progress / 0.35;
+      final fp      = progress / 0.35;
       final opacity = pow(1.0 - fp, 1.6) * 0.88;
       final radius  = 6.0 + fp * 230.0;
-      canvas.drawCircle(
-        origin, radius,
-        Paint()
-          ..color      = color.withAlpha((opacity * 255).round())
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 36),
-      );
-      canvas.drawCircle(
-        origin, radius * 0.22,
-        Paint()..color = color.withAlpha(((1.0 - fp * fp) * 230).round()),
-      );
+      _p
+        ..color      = color.withAlpha((opacity * 255).round())
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 36);
+      canvas.drawCircle(origin, radius, _p);
+      _p
+        ..maskFilter = null
+        ..color      = color.withAlpha(((1.0 - fp * fp) * 230).round());
+      canvas.drawCircle(origin, radius * 0.22, _p);
     }
 
-    // ── Collect blocks into buckets ──────────────────────────────────────────
-    // far + sharp + hclose drawn directly (no saveLayer).
-    // Only close gets 1 saveLayer for bokeh — keeps GPU load low.
-    final close = <_Cmd>[];
-
+    // ── Draw all blocks directly — no saveLayer, fully sharp ────────────────
+    _p.maskFilter = null;
     for (final b in blocks) {
       final t = ((progress - b.delay) / (1.0 - b.delay)).clamp(0.0, 1.0);
       if (t <= 0) continue;
@@ -305,31 +291,12 @@ class _BurstPainter extends CustomPainter {
 
       final depthDim = t < 0.24 ? 0.45 + (t / 0.24) * 0.55 : 1.0;
       final alpha    = (opacity.clamp(0.0, 1.0) * depthDim * 255).round();
-      final rect     = Rect.fromCenter(
-          center: pos, width: b.w * scale, height: b.h * scale);
 
-      if (t < 0.80) {
-        // far + sharp + hclose — draw directly, reuse _p
-        _p.color = color.withAlpha(alpha);
-        canvas.drawRect(rect, _p);
-      } else {
-        close.add(_Cmd(rect, alpha));
-      }
-    }
-
-    // ── Single saveLayer for close (bokeh) ───────────────────────────────────
-    if (close.isNotEmpty) {
-      canvas.saveLayer(
-        Rect.fromLTWH(0, 0, size.width, size.height),
-        Paint()
-          ..imageFilter = ui.ImageFilter.blur(
-              sigmaX: 8, sigmaY: 8, tileMode: TileMode.decal),
+      _p.color = color.withAlpha(alpha);
+      canvas.drawRect(
+        Rect.fromCenter(center: pos, width: b.w * scale, height: b.h * scale),
+        _p,
       );
-      for (final c in close) {
-        _p.color = color.withAlpha(c.alpha);
-        canvas.drawRect(c.rect, _p);
-      }
-      canvas.restore();
     }
   }
 

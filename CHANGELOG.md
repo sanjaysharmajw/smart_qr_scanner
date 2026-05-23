@@ -1,3 +1,76 @@
+## 1.6.0
+
+### New Features
+
+**Holographic QR Overlay (`HolographicQrOverlay`)**
+- New widget in the example app — renders the scanned QR code as a floating hologram immediately after a successful scan
+- Entrance animation built with `TweenSequence`: scale bursts from `0.05×` → `1.18×` → `0.94×` → `1.0×` (small-to-big succession with overshoot settle)
+- Opacity fades in during the first 25 % of the entrance so the scale growth is fully visible
+- Continuous 3D tilt oscillation via `Matrix4` perspective transform (`rotateX` ± 0.30 rad, `rotateY` ± 0.22 rad, perspective 0.002) — hologram appears to float in space
+- Entrance tilt: starts at 0.55 rad forward-lean and settles to 0 as the card rises into view
+- Float animation: ±6 px vertical translation on a 2800 ms sine loop
+- Slide-up entrance: card rises from +40 px below final position
+- Cyan sweep scan line rendered by an isolated `_SweepPainter` (`CustomPainter`) — only the scan line repaints per tick, not the QR widget
+- `ClipRRect` with `borderRadius: 10` clips QR edges cleanly
+- `RepaintBoundary` wraps the card so tilt/float repaints are isolated from the rest of the tree
+- `onDismiss` is optional — when `null` the parent (`SmartScannerWidget`) controls removal via `_showSuccess`
+- Auto-dismiss with configurable `autoDismissAfter` duration when `onDismiss` is provided
+
+**`ScanSuccessStyle.pixelBurst`**
+- New enum value on `SmartScannerWidget.successStyle`; selects the Paytm-style white-pixel burst animation in place of the default ripple check-mark
+
+**`successOverlayBuilder` parameter**
+- `Widget Function(SmartScanResult)?` — renders any widget behind the success animation at the moment of scan
+- Z-order: dark scrim (7a) → overlay (7b) → pixel burst (7c) — pixels always render on top
+
+**`onScanAnimationComplete` callback**
+- Fires after the success animation completes (pixel burst at t = 0.70); use this for navigation instead of `onScan` so the animation is never cut short by the screen being disposed
+
+**`successLogo` / `successLogoSize` parameters**
+- Optional `Widget?` centered inside the pixel burst; fades out in the second half of the animation
+
+**Delayed pixel burst (`_showBurst` flag)**
+- Hologram materialises first (0 ms); pixel burst starts 600 ms later so pixels visually emerge from the fully-formed hologram
+
+**Camera auto-pause on scan**
+- `controller.pause()` called the moment a scan is confirmed; `controller.resume()` called inside `onComplete` after animation ends — camera feed freezes during the success animation
+
+**Dark scrim on scan success**
+- Semi-transparent black overlay (`Colors.black.withAlpha(180)`) fades in (`300 ms`) behind the hologram so white QR modules are legible against any camera background
+
+### Improvements
+
+**Scan UI auto-hide**
+- Scanner overlay (corner brackets + animated scan line), status label, and hint text are hidden as soon as `_detecting` becomes `true` when `successStyle == pixelBurst`, not only after `_showSuccess` — the frame disappears the instant a code is first detected
+- All three items are restored when `_showSuccess` returns to `false`
+
+**Pixel Burst — performance overhaul**
+- `saveLayer` / `ImageFilter.blur` removed entirely — all blocks drawn directly via `canvas.drawRect`; no GPU-layer allocation per frame
+- Single `Paint` object (`_p`) reused across every block every frame — eliminates ~15 600 `Paint` allocations per second at 60 fps with 260 blocks
+- Flash shockwave also reuses `_p` (with `maskFilter` reset between circles)
+- `_Cmd` bucket class and `_drawBlurred` helper removed (no longer needed)
+- `dart:ui` import removed
+- Block count reduced from 520 → 260
+- `RepaintBoundary` wraps both the pixel burst and the holographic overlay — isolates their repaint from the rest of the scanner widget tree
+
+**Pixel Burst — animation quality**
+- `fadeStart` range `0.68–0.90` gives a long, gradual fade tail
+- `onComplete` fires at `t ≥ 0.70` (blur phase start) for snappy navigation timing while animation still plays to completion naturally
+
+**Holographic overlay — performance**
+- `_sweepCtrl` (`1600 ms` repeat) drives only its own `AnimatedBuilder`; the QR widget and tilt/float tree are not rebuilt on sweep ticks
+- Outer `AnimatedBuilder` uses `Listenable.merge([_entranceCtrl, _floatCtrl, _tiltCtrl])` and passes the card as a static `child:` — card widget tree is never rebuilt by animation ticks
+
+### Removals
+
+- **"Scanning paused" overlay and pause icon** removed from the scanner UI — the paused state is now fully silent
+
+### Bug Fixes
+
+- `_StatusLabel` no longer receives a `paused:` parameter after the paused state was removed — the stale call-site argument is cleaned up
+
+---
+
 ## 1.5.0
 
 ### Bug Fixes

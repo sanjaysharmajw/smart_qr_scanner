@@ -29,7 +29,12 @@ A **production-ready** Flutter package for real-time QR code and barcode scannin
 **UI & Animations**
 - **Modern animated loader** — glowing frame, sweep line, pulsing icon, animated dots
 - **Animated scan line** — neon sweep with glow effect
-- **Scan success animation** — elastic check-mark ring
+- **Pixel burst success animation** — Paytm-style white blocks burst radially from the scan center; `ScanSuccessStyle.pixelBurst`
+- **Holographic QR overlay** — scanned code materialises as a floating hologram with `Matrix4` 3D tilt, float, entrance succession, and a cyan sweep line; rendered behind the pixel burst
+- **Scan UI auto-hide** — corner brackets, scan line, and hint text disappear the instant a code is detected during pixel burst mode and restore cleanly after
+- **Camera freeze on scan** — camera pauses during the success animation and resumes on completion for a polished transition
+- **Dark scrim on scan success** — semi-transparent overlay ensures white hologram modules are legible against any camera background
+- **Elastic check-mark ripple** — default success animation (ripple rings + animated check-mark)
 - **Glassmorphism controls** — flash, flip, gallery buttons with blur backdrop
 - **3 built-in themes** — Neon Cyan, Light, Minimal White + fully custom
 - **Theme picker** — bottom sheet with animated selection rows
@@ -82,7 +87,7 @@ A **production-ready** Flutter package for real-time QR code and barcode scannin
 
 ```yaml
 dependencies:
-  smart_qr_scanner: ^1.5.0
+  smart_qr_scanner: ^1.6.0
 ```
 
 ```bash
@@ -524,11 +529,60 @@ SmartScannerWidget(
   // Called when user picks a theme from the bottom sheet
   onThemeChanged: (ScannerTheme t) => setState(() => _theme = t),
 
+  // Success animation style
+  successStyle: ScanSuccessStyle.pixelBurst, // or ScanSuccessStyle.ripple
+
+  // Widget rendered BEHIND the success animation (e.g. holographic QR overlay).
+  // Receives the scan result; removed at the same time as the animation.
+  successOverlayBuilder: (result) => HolographicQrOverlay(rawValue: result.rawValue),
+
+  // Called after the success animation completes — use this for navigation
+  // instead of controller.onScan so the animation is not cut short.
+  onScanAnimationComplete: (result) => Navigator.pushReplacement(
+    context,
+    MaterialPageRoute(builder: (_) => ResultScreen(result: result)),
+  ),
+
+  // Optional logo widget centered inside the pixel burst
+  successLogo: Image.asset('assets/logo.png', width: 90, height: 90),
+  successLogoSize: 100,
+
   // Override the default loading / error screens
   loadingWidget: MyLoadingScreen(),
   errorWidget:   MyErrorScreen(),
 );
 ```
+
+### Holographic QR Overlay (example app widget)
+
+`HolographicQrOverlay` is a ready-to-use widget that renders the scanned QR code as a floating hologram with a cinematic entrance:
+
+```dart
+successOverlayBuilder: (result) => HolographicQrOverlay(
+  rawValue: result.rawValue,
+  // onDismiss: null  →  SmartScannerWidget controls removal
+  // onDismiss: () {} →  widget self-dismisses after autoDismissAfter
+),
+```
+
+| Property | Default | Description |
+|---|---|---|
+| `rawValue` | required | QR data to encode |
+| `onDismiss` | `null` | Removal callback; `null` = parent controls lifecycle |
+| `autoDismissAfter` | `2400 ms` | Auto-dismiss delay when `onDismiss` is set |
+
+**Entrance sequence** (900 ms, `TweenSequence`):
+
+| Phase | Scale | Opacity | Duration |
+|---|---|---|---|
+| Burst | `0.05×` → `1.18×` | `0` → `1` | 60 % |
+| Overshoot | `1.18×` → `0.94×` | `1` | 20 % |
+| Settle | `0.94×` → `1.0×` | `1` | 20 % |
+
+**Continuous animations** after entrance:
+- **3D tilt** — `Matrix4` perspective, `rotateX` ±0.30 rad + `rotateY` ±0.22 rad, 2200 ms loop
+- **Float** — ±6 px vertical, 2800 ms sine
+- **Cyan sweep line** — isolated `CustomPainter`, repaints only the scan line (1600 ms repeat)
 
 ---
 
@@ -628,6 +682,8 @@ SmartScanResult {
 | Only need QR codes | `formats: [BarcodeFormat.qrCode]` |
 | Prevent re-scan noise | `duplicatePreventionWindow: Duration(seconds: 3)` |
 | Stop after first scan | `scanMode: ScanMode.single` |
+| Smooth pixel burst | `saveLayer` is not used — all blocks drawn directly via `canvas.drawRect`; single `Paint` object reused across all 260 blocks per frame |
+| Smooth hologram | Sweep line isolated in its own `AnimatedBuilder`; card tree never rebuilt by tilt/float ticks; `RepaintBoundary` wraps both burst and hologram |
 
 ---
 
